@@ -5,10 +5,9 @@ import {
   Search,
   UserMinus,
   UserPlus,
-  Users,
 } from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
-import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
+import type { domain_FriendPlayerListItem } from "@/api/services/friends";
 import {
   addFriend,
   fetchFriendsPage,
@@ -22,16 +21,13 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   PAGE_COMPACT_PADDING,
-  ROW_AVATAR,
-  ROW_DETAIL,
-  ROW_NAME,
-  ROW_PAD,
 } from "./ui/responsiveTokens";
 import { cn } from "./ui/utils";
 import {
   mergeCommunityPageWindow,
   type CommunityListCacheItem,
 } from "./communityVirtualization";
+import { formatXp } from "@/shared/social/formatXp";
 
 type FriendsTab = "players" | "friends";
 
@@ -40,16 +36,10 @@ const SEARCH_DEBOUNCE_MS = 280;
 const COMMUNITY_OVERSCAN = 220;
 
 const PAGE_SHELL =
-  "mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-[auto_auto] short-phone:overflow-visible";
-
-const SUMMARY_TILE =
-  "group relative overflow-hidden rounded-[1.35rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-px";
-
-const SUMMARY_TILE_LABEL =
-  "text-[11px] uppercase tracking-[0.16em] text-text-muted transition-colors";
+  "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible";
 
 const ROW_ACTION_BUTTON =
-  "h-8 w-8 shrink-0 rounded-full p-0 narrow:h-7.5 narrow:w-7.5";
+  "h-10 w-10 shrink-0 rounded-full p-0 narrow:h-9 narrow:w-9";
 
 type CommunityListState = {
   items: CommunityListCacheItem[];
@@ -113,6 +103,30 @@ function friendPlayerSubtitle(item: domain_FriendPlayerListItem): string {
   return "Нет данных";
 }
 
+function formatRelativeLastActive(value?: string | null): string {
+  if (!value) return "Без активности";
+
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return "Без активности";
+
+  const deltaMs = Date.now() - parsed;
+  if (deltaMs < 2 * 60 * 1000) return "Только что";
+
+  const minutes = Math.floor(deltaMs / (60 * 1000));
+  if (minutes < 60) return `${minutes} мин назад`;
+
+  const hours = Math.floor(deltaMs / (60 * 60 * 1000));
+  if (hours < 24) return `${hours} ч назад`;
+
+  const days = Math.floor(deltaMs / (24 * 60 * 60 * 1000));
+  if (days < 7) return `${days} дн назад`;
+
+  return new Date(parsed).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 function createOffsetRecord() {
   return {
     players: new Set<number>(),
@@ -123,7 +137,7 @@ function createOffsetRecord() {
 function CommunityRowSkeleton({ isLast = false }: { isLast?: boolean }) {
   return (
     <div className={cn(isLast ? "pb-0" : "pb-2")}>
-      <div className="h-[58px] animate-pulse rounded-[1.2rem] border border-border-subtle bg-bg-elevated" />
+      <div className="h-[90px] animate-pulse rounded-[1.45rem] border border-border-subtle bg-bg-elevated" />
     </div>
   );
 }
@@ -159,12 +173,14 @@ function CommunityListRow({
   const rowId = String(item.telegramId ?? "");
   const displayName = friendPlayerDisplayName(item);
   const showRemoveAction = activeFriendsTab === "friends" || item.isFriend;
+  const xpLabel = formatXp(item.xp);
+  const activityLabel = formatRelativeLastActive(item.lastActiveAt);
+  const versesLabel = friendPlayerSubtitle(item);
 
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] transition-[background-color,border-color,box-shadow] hover:border-brand-primary/18 hover:bg-bg-surface",
-        ROW_PAD,
+        "flex items-center gap-3 rounded-[1.45rem] border border-border-default/55 bg-bg-elevated px-3.5 py-3.5 shadow-[var(--shadow-soft)] transition-[background-color,border-color,box-shadow] hover:border-brand-primary/18 hover:bg-bg-surface hover:shadow-[var(--shadow-floating)] narrow:gap-2.5 narrow:px-3 narrow:py-3 sm:gap-3.5 sm:px-4 sm:py-4",
       )}
     >
       {onOpenPlayerProfile ? (
@@ -177,13 +193,12 @@ function CommunityListRow({
               avatarUrl: item.avatarUrl?.trim() ? item.avatarUrl.trim() : null,
             })
           }
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] text-left"
+          className="flex min-w-0 flex-1 items-center gap-3.5 rounded-[1.1rem] text-left"
           aria-label={`Открыть профиль ${displayName}`}
         >
           <Avatar
             className={cn(
-              ROW_AVATAR,
-              "border border-border-subtle bg-bg-surface",
+              "h-11 w-11 shrink-0 border border-border-subtle bg-bg-surface sm:h-12 sm:w-12",
             )}
           >
             {item.avatarUrl ? (
@@ -194,31 +209,28 @@ function CommunityListRow({
             </AvatarFallback>
           </Avatar>
 
-          <div className="min-w-0 flex-1">
-            <div
-              className={cn(
-                "truncate font-medium text-text-primary",
-                ROW_NAME,
-              )}
-            >
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="truncate text-[15px] font-semibold tracking-tight text-text-primary sm:text-base">
               {displayName}
             </div>
-            <div
-              className={cn(
-                "mt-0.5 truncate text-text-muted",
-                ROW_DETAIL,
-              )}
-            >
-              {friendPlayerSubtitle(item)}
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full border border-brand-primary/18 bg-brand-primary/10 px-2.5 py-1 text-[11px] font-medium text-brand-primary">
+                {xpLabel}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border-subtle/80 bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                {activityLabel}
+              </span>
+            </div>
+            <div className="truncate text-[12px] text-text-muted sm:text-[12.5px]">
+              {versesLabel}
             </div>
           </div>
         </button>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3.5">
           <Avatar
             className={cn(
-              ROW_AVATAR,
-              "border border-border-subtle bg-bg-surface",
+              "h-11 w-11 shrink-0 border border-border-subtle bg-bg-surface sm:h-12 sm:w-12",
             )}
           >
             {item.avatarUrl ? (
@@ -229,22 +241,20 @@ function CommunityListRow({
             </AvatarFallback>
           </Avatar>
 
-          <div className="min-w-0 flex-1">
-            <div
-              className={cn(
-                "truncate font-medium text-text-primary",
-                ROW_NAME,
-              )}
-            >
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="truncate text-[15px] font-semibold tracking-tight text-text-primary sm:text-base">
               {displayName}
             </div>
-            <div
-              className={cn(
-                "mt-0.5 truncate text-text-muted",
-                ROW_DETAIL,
-              )}
-            >
-              {friendPlayerSubtitle(item)}
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full border border-brand-primary/18 bg-brand-primary/10 px-2.5 py-1 text-[11px] font-medium text-brand-primary">
+                {xpLabel}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border-subtle/80 bg-bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+                {activityLabel}
+              </span>
+            </div>
+            <div className="truncate text-[12px] text-text-muted sm:text-[12.5px]">
+              {versesLabel}
             </div>
           </div>
         </div>
@@ -265,7 +275,12 @@ function CommunityListRow({
             ? `Удалить ${displayName}`
             : `Добавить ${displayName}`
         }
-        className={ROW_ACTION_BUTTON}
+        className={cn(
+          ROW_ACTION_BUTTON,
+          showRemoveAction
+            ? "border-border-subtle/80 bg-bg-surface text-text-secondary hover:border-state-error/20 hover:bg-state-error/10 hover:text-state-error"
+            : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:border-brand-primary/30 hover:bg-brand-primary/14 hover:text-brand-primary",
+        )}
       >
         {showRemoveAction ? (
           <UserMinus className="h-3.5 w-3.5" />
@@ -556,15 +571,17 @@ export function Community({
   const activeState = listStates[activeFriendsTab];
   const playersTotal = listStates.players.total;
   const friendsTotal = listStates.friends.total;
-  const activeCount = activeFriendsTab === "players" ? playersTotal : friendsTotal;
-  const activeListTitle =
-    activeFriendsTab === "players" ? "Игроки сообщества" : "Мои друзья";
   const canManageFriends = Boolean(telegramId);
   const loadedItemsCount = React.useMemo(
     () => activeState.items.reduce((total, item) => total + (item ? 1 : 0), 0),
     [activeState.items],
   );
   const hasMoreRows = loadedItemsCount < activeState.total;
+  const emptyStateLabel = activeSearchQuery
+    ? "Ничего не найдено"
+    : activeFriendsTab === "players"
+      ? "Игроков пока нет"
+      : "Друзей пока нет";
 
   const handleSearchInputChange = (value: string) => {
     if (activeFriendsTab === "players") {
@@ -606,59 +623,9 @@ export function Community({
 
   return (
     <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
-      <AppSurface className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(var(--accent-gold-rgb),0.16),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(var(--accent-olive-rgb),0.12),transparent_45%)]" />
-
-        <div className="relative grid gap-3">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveFriendsTab("friends")}
-              className={cn(
-                SUMMARY_TILE,
-                activeFriendsTab === "friends"
-                  ? "border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-floating)]"
-                  : "border-border-subtle bg-bg-elevated text-text-primary hover:border-brand-primary/15 hover:bg-bg-surface",
-              )}
-            >
-              <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div
-                className={cn(
-                  SUMMARY_TILE_LABEL,
-                  activeFriendsTab === "friends" && "text-brand-primary/80",
-                )}
-              >
-                Мои друзья
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFriendsTab("players")}
-              className={cn(
-                SUMMARY_TILE,
-                activeFriendsTab === "players"
-                  ? "border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-floating)]"
-                  : "border-border-subtle bg-bg-elevated text-text-primary hover:border-brand-primary/15 hover:bg-bg-surface",
-              )}
-            >
-              <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div
-                className={cn(
-                  SUMMARY_TILE_LABEL,
-                  activeFriendsTab === "players" && "text-brand-primary/80",
-                )}
-              >
-                Игроки
-              </div>
-            </button>
-          </div>
-        </div>
-      </AppSurface>
-
       <AppSurface
         data-tour="profile-friends"
-        className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 short-phone:h-auto short-phone:grid-rows-none"
+        className="flex h-full min-h-0 flex-1 flex-col gap-3 short-phone:h-auto"
       >
         {!canManageFriends ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.25rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-sm text-text-secondary">
@@ -666,36 +633,74 @@ export function Community({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-text-primary">
-                  {activeListTitle}
+            <div className="space-y-3">
+              <h1 className="text-[15px] font-semibold tracking-tight text-text-primary sm:text-base">
+                Сообщество
+              </h1>
+
+              <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+                <div className="inline-flex w-full rounded-[1.15rem] border border-border-subtle/80 bg-bg-elevated/70 p-1 shadow-[var(--shadow-soft)] sm:w-auto">
+                  {([
+                    {
+                      key: "friends",
+                      label: "Мои друзья",
+                      count: friendsTotal,
+                    },
+                    {
+                      key: "players",
+                      label: "Игроки",
+                      count: playersTotal,
+                    },
+                  ] as const).map((tab) => {
+                    const isActive = activeFriendsTab === tab.key;
+
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setActiveFriendsTab(tab.key)}
+                        className={cn(
+                          "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-[0.95rem] px-4 py-2.5 text-[15px] font-medium transition-[background-color,color,box-shadow] narrow:px-3.5 narrow:py-2",
+                          isActive
+                            ? "bg-bg-surface text-text-primary shadow-[var(--shadow-soft)]"
+                            : "text-text-secondary hover:text-text-primary",
+                        )}
+                      >
+                        <span className="truncate">{tab.label}</span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            isActive
+                              ? "bg-brand-primary/10 text-brand-primary"
+                              : "bg-bg-subtle text-text-muted",
+                          )}
+                        >
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                  <Input
+                    value={activeSearchInput}
+                    onChange={(event) => handleSearchInputChange(event.target.value)}
+                    placeholder={
+                      activeFriendsTab === "players"
+                        ? "Поиск игроков"
+                        : "Поиск друзей"
+                    }
+                    className="h-11 rounded-[1.2rem] border-border-subtle/80 bg-bg-elevated/70 pl-10 text-[15px] shadow-none"
+                  />
                 </div>
               </div>
-
-              <div className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated px-3 text-xs font-semibold text-text-secondary shadow-[var(--shadow-soft)]">
-                <Users className="h-3.5 w-3.5 text-brand-primary" />
-                {activeCount}
-              </div>
             </div>
 
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-              <Input
-                value={activeSearchInput}
-                onChange={(event) => handleSearchInputChange(event.target.value)}
-                placeholder={
-                  activeFriendsTab === "players"
-                    ? "Поиск игроков"
-                    : "Поиск друзей"
-                }
-                className="h-10 rounded-[1.2rem] border-border-subtle bg-bg-elevated/80 pl-10 shadow-none"
-              />
-            </div>
-
-            <div className="min-h-0">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[1.35rem] border border-border-subtle/70 bg-bg-surface/35 p-2 sm:p-2.5">
               {activeState.isInitialLoading && activeState.items.length === 0 ? (
-                <div className="grid min-h-0 content-start gap-2 overflow-y-auto pr-1">
+                <div className="grid h-full min-h-0 content-start gap-2 overflow-y-auto pr-1">
                   {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
                     <CommunityRowSkeleton
                       key={`community-skeleton-${activeFriendsTab}-${index}`}
@@ -708,64 +713,66 @@ export function Community({
                   {activeState.error}
                 </div>
               ) : activeState.total === 0 ? (
-                <div className="rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-center text-sm text-text-secondary">
-                  {activeSearchQuery ? "Ничего не найдено" : "Список пуст"}
+                <div className="flex h-full min-h-[14rem] items-center justify-center rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated/70 px-4 py-6 text-center text-sm text-text-secondary">
+                  {emptyStateLabel}
                 </div>
               ) : (
-                <Virtuoso
-                  ref={virtuosoRef}
-                  key={`${activeFriendsTab}:${activeSearchQuery}`}
-                  className={COMMUNITY_LIST_BASE_CLASS}
-                  totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
-                  defaultItemHeight={74}
-                  increaseViewportBy={COMMUNITY_OVERSCAN}
-                  overscan={COMMUNITY_OVERSCAN}
-                  components={{ List: CommunityVirtuosoList }}
-                  computeItemKey={(index) => {
-                    if (hasMoreRows && index >= loadedItemsCount) {
-                      return `${activeFriendsTab}-loader-${loadedItemsCount}`;
-                    }
-                    const item = activeState.items[index];
-                    return item
-                      ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
-                      : `${activeFriendsTab}-skeleton-${index}`;
-                  }}
-                  rangeChanged={handleRangeChanged}
-                  endReached={handleEndReached}
-                  itemContent={(index) => {
-                    if (hasMoreRows && index >= loadedItemsCount) {
-                      return <CommunityLoadingRow />;
-                    }
+                <div className="h-full min-h-0">
+                  <Virtuoso
+                    ref={virtuosoRef}
+                    key={`${activeFriendsTab}:${activeSearchQuery}`}
+                    className={COMMUNITY_LIST_BASE_CLASS}
+                    totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
+                    defaultItemHeight={98}
+                    increaseViewportBy={COMMUNITY_OVERSCAN}
+                    overscan={COMMUNITY_OVERSCAN}
+                    components={{ List: CommunityVirtuosoList }}
+                    computeItemKey={(index) => {
+                      if (hasMoreRows && index >= loadedItemsCount) {
+                        return `${activeFriendsTab}-loader-${loadedItemsCount}`;
+                      }
+                      const item = activeState.items[index];
+                      return item
+                        ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
+                        : `${activeFriendsTab}-skeleton-${index}`;
+                    }}
+                    rangeChanged={handleRangeChanged}
+                    endReached={handleEndReached}
+                    itemContent={(index) => {
+                      if (hasMoreRows && index >= loadedItemsCount) {
+                        return <CommunityLoadingRow />;
+                      }
 
-                    const item = activeState.items[index];
+                      const item = activeState.items[index];
 
-                    if (!item) {
+                      if (!item) {
+                        return (
+                          <CommunityRowSkeleton
+                            isLast={index === activeState.total - 1}
+                          />
+                        );
+                      }
+
+                      const rowId = String(item.telegramId ?? "");
+                      const isMutationPending =
+                        pendingMutationByTelegramId[rowId] === true;
+
                       return (
-                        <CommunityRowSkeleton
-                          isLast={index === activeState.total - 1}
-                        />
+                        <div className={cn(index === activeState.total - 1 ? "pb-0" : "pb-2")}>
+                          <CommunityListRow
+                            item={item}
+                            activeFriendsTab={activeFriendsTab}
+                            isMutationPending={isMutationPending}
+                            onOpenPlayerProfile={onOpenPlayerProfile}
+                            onToggleFriend={(nextItem) => {
+                              void handleToggleFriend(nextItem);
+                            }}
+                          />
+                        </div>
                       );
-                    }
-
-                    const rowId = String(item.telegramId ?? "");
-                    const isMutationPending =
-                      pendingMutationByTelegramId[rowId] === true;
-
-                    return (
-                      <div className={cn(index === activeState.total - 1 ? "pb-0" : "pb-2")}>
-                        <CommunityListRow
-                          item={item}
-                          activeFriendsTab={activeFriendsTab}
-                          isMutationPending={isMutationPending}
-                          onOpenPlayerProfile={onOpenPlayerProfile}
-                          onToggleFriend={(nextItem) => {
-                            void handleToggleFriend(nextItem);
-                          }}
-                        />
-                      </div>
-                    );
-                  }}
-                />
+                    }}
+                  />
+                </div>
               )}
             </div>
           </>

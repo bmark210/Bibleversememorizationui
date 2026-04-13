@@ -396,6 +396,7 @@ export function ModeClickWordsHintedExercise({
               scrollClassName="h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
               showShadows={true}
               shadowSize={16}
+              shadowBg="var(--color-bg-elevated)"
             >
               <div className={CHOICES_LIST_CLASS}>
                 {uniqueChoices.map((choice) => {

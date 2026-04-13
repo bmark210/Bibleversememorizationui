@@ -1,4 +1,4 @@
-import type { internal_api_PatchUserVerseRequest } from "@/api/models/internal_api_PatchUserVerseRequest";
+import type { api_PatchUserVerseRequest } from "@/api/models/api_PatchUserVerseRequest";
 import type { domain_TrainingStepHTTPRequest } from "@/api/models/domain_TrainingStepHTTPRequest";
 import type { domain_TrainingStepHTTPResponse } from "@/api/models/domain_TrainingStepHTTPResponse";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
@@ -29,7 +29,7 @@ export async function persistTrainingVerseProgress(
 ): Promise<domain_UserVerse | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return null;
-  const body: internal_api_PatchUserVerseRequest = {
+  const body: api_PatchUserVerseRequest = {
     masteryLevel: verse.rawMasteryLevel,
     ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     reviewLapseStreak: verse.reviewLapseStreak,

@@ -11,6 +11,10 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import type { Verse } from "@/app/domain/verse";
 import type { PublicTextBoxOwner, TextBoxSummary } from "@/app/types/textBox";
+import {
+  getTextBoxVisibilityLabel,
+  getTextBoxVisibilityToneClassName,
+} from "./textBoxVisibilityMeta";
 
 type TextStatItem = {
   label: string;
@@ -45,7 +49,7 @@ type TextBoxCardProps = {
 };
 
 const SURFACE_CARD_CLASS_NAME =
-  "group relative overflow-hidden rounded-[2rem] border border-border-default/55 bg-bg-elevated p-5 shadow-[var(--shadow-soft)] before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-brand-primary/35 before:to-transparent before:content-[''] after:pointer-events-none after:absolute after:-right-12 after:top-[-3.5rem] after:h-28 after:w-28 after:rounded-full after:bg-brand-primary/8 after:blur-3xl after:content-['']";
+  "group relative rounded-[2rem] border border-border-default/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.018)_18%,rgba(255,255,255,0.01)_100%)] bg-bg-elevated p-5 shadow-[var(--shadow-soft)] ring-1 ring-inset ring-white/5 transition-[border-color,box-shadow,transform] duration-200 hover:border-border-default/80 hover:shadow-[0_14px_40px_rgba(0,0,0,0.24)]";
 
 export function formatRussianCount(
   count: number,
@@ -146,9 +150,7 @@ function getOwnerInitials(owner?: PublicTextBoxOwner | null) {
 
 export function TextSurfaceCard({ children, className }: TextSurfaceCardProps) {
   return (
-    <div
-      className={cn(SURFACE_CARD_CLASS_NAME, "verse-card-appear", className)}
-    >
+    <div className={cn(SURFACE_CARD_CLASS_NAME, "verse-card-appear", className)}>
       {children}
     </div>
   );
@@ -320,11 +322,14 @@ export function TextBoxCard({
             <h3 className="truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.5rem]">
               {box.title}
             </h3>
-            {box.visibility === "public" ? (
-              <span className="inline-flex items-center rounded-full border border-brand-primary/15 bg-brand-primary/8 px-2.5 py-1 text-[11px] font-medium text-brand-primary/88">
-                Публичная
-              </span>
-            ) : null}
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                getTextBoxVisibilityToneClassName(box.visibility),
+              )}
+            >
+              {getTextBoxVisibilityLabel(box.visibility)}
+            </span>
           </div>
 
           <p className="mt-3 text-[1rem] leading-7 text-text-secondary">

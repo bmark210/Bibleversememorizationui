@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, Gamepad2, Layers, Repeat, Dumbbell } from "lucide-react";
+import { Brain, Gamepad2, Layers, Repeat, Dumbbell } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import {
@@ -81,14 +81,6 @@ function ModeOption({
             <p className="mt-0.5 text-xs text-text-muted">{value}</p>
           </div>
         </div>
-        <div className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all duration-200",
-          active
-            ? "bg-brand-primary text-bg-base scale-100 opacity-100"
-            : "scale-75 opacity-0"
-        )}>
-          <Check className="h-3 w-3" strokeWidth={2.5} />
-        </div>
       </div>
     </button>
   );
@@ -154,7 +146,7 @@ export function TrainingBoxHub({
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
             Коробка
           </p>
-          <h1 className="mt-2 truncate [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.2rem]">
+          <h1 className="mt-2 truncate [font-family:var(--font-heading)] text-[1.8rem] font-semibold tracking-tight text-text-primary sm:text-[2.2rem]">
             {scope.boxTitle}
           </h1>
           <p className="mt-2 text-sm text-text-secondary">

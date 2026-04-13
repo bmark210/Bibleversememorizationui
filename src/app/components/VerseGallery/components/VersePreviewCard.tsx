@@ -1,6 +1,6 @@
 import React from "react";
 import { useCallback, useRef } from "react";
-import { BookMarked, Minus, Pause, Play, Trash2 } from "lucide-react";
+import { ArrowRightLeft, BookMarked, Minus, Pause, Play, Trash2 } from "lucide-react";
 import { VerseCard } from "@/app/components/VerseCard";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -29,6 +29,7 @@ type Props = {
   onStatusAction: () => void;
   onCatalogRemove?: () => void;
   onDeleteRequest?: () => void;
+  onReplaceRequest?: () => void;
   onUtilityAction?: () => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
@@ -49,6 +50,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   onStatusAction,
   onCatalogRemove,
   onDeleteRequest,
+  onReplaceRequest,
   // onUtilityAction,
   onOpenProgress: _onOpenProgress,
   onOpenTags,
@@ -137,7 +139,9 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             ref={previewBodyRef}
             className={cn(
               "flex h-full min-w-0 flex-col px-1",
-              isFocusMode ? "items-start pt-1 sm:pt-2" : "items-start overflow-hidden pt-2 sm:pt-3",
+              isFocusMode
+                ? "items-start pt-1 sm:pt-2"
+                : "items-start justify-center gap-4 overflow-hidden",
             )}
           >
             <p
@@ -155,7 +159,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             <VerseTagPills
               tags={verse.tags}
               onPress={onOpenTags ? () => onOpenTags(verse) : undefined}
-              className={cn(isFocusMode ? "mt-5" : "mt-4")}
+              className={isFocusMode ? "mt-5" : undefined}
             />
           </div>
         }
@@ -187,8 +191,23 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               </Button>
             ) : null}
 
-            {!isCatalogMode && onDeleteRequest ? (
+            {!isCatalogMode && onReplaceRequest && presentation.label === "Изучение" ? (
               <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full px-3"
+                disabled={isActionPending}
+                onClick={onReplaceRequest}
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                Заменить
+              </Button>
+            ) : null}
+
+            {!isCatalogMode && onDeleteRequest ? (
+             <div className="flex-1 flex justify-end">
+               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
@@ -197,8 +216,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                 onClick={onDeleteRequest}
               >
                 <Trash2 className="h-4 w-4" />
-                Удалить
               </Button>
+             </div>
             ) : null}
           </div>
         }

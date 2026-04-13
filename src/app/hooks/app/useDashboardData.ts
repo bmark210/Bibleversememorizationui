@@ -11,8 +11,8 @@ import {
   DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
   LEADERBOARD_WINDOW_SIZE,
   fetchDashboardLeaderboard,
-} from "@/api/services/leaderboard";
-import { fetchUserDashboardStats } from "@/api/services/userStats";
+} from "../../../api/services/leaderboard";
+import { fetchUserDashboardStats } from "../../../api/services/userStats";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 
 type DashboardLeaderboardQuery = {

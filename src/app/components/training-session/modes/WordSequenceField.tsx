@@ -170,7 +170,7 @@ export function WordSequenceField({
 
   return (
     <div className={cn(
-      `relative flex min-h-0 flex-col rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_SM}`,
+      `relative flex min-h-0 flex-col rounded-3xl border border-border-subtle bg-bg-elevated overflow-hidden ${TRAINING_SECTION_INSET_SM}`,
       className
     )}>
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -196,12 +196,12 @@ export function WordSequenceField({
         data-scroll-shadow="true"
         data-at-top={atTop}
         data-at-bottom={atBottom}
-        className="h-full overflow-y-auto overscroll-contain pt-2 pb-4 touch-pan-y [-webkit-overflow-scrolling:touch]"
+        className="h-full overflow-y-auto overscroll-contain py-2 touch-pan-y [-webkit-overflow-scrolling:touch]"
         onScroll={handleScroll}
         role="group"
         aria-label="Поле ввода стиха"
       >
-        <div className="flex flex-wrap content-start gap-1.5 leading-relaxed">
+        <div className="flex flex-wrap content-start gap-1.5 leading-relaxed px-1 py-2">
           {items.map((item) => (
             <span
               key={item.id}

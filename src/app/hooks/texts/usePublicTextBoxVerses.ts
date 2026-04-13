@@ -6,6 +6,7 @@ import type { PublicTextBoxDetailResponse } from "@/app/types/textBox";
 
 export function usePublicTextBoxVerses(
   boxId: string | null,
+  telegramId?: string | null,
   translation?: string,
 ) {
   const [data, setData] = useState<PublicTextBoxDetailResponse | null>(null);
@@ -22,7 +23,11 @@ export function usePublicTextBoxVerses(
     setIsLoading(true);
     setError(null);
     try {
-      const nextData = await fetchPublicTextBoxDetail(boxId, translation);
+      const nextData = await fetchPublicTextBoxDetail(
+        boxId,
+        telegramId ?? undefined,
+        translation,
+      );
       setData(nextData);
       return nextData;
     } catch (err) {
@@ -35,7 +40,7 @@ export function usePublicTextBoxVerses(
     } finally {
       setIsLoading(false);
     }
-  }, [boxId, translation]);
+  }, [boxId, telegramId, translation]);
 
   useEffect(() => {
     void refresh().catch(() => undefined);

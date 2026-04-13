@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { bible_memory_db_internal_domain_UserDashboardStats as domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
 import { useCurrentUserStatsStore } from "./currentUserStatsStore";
 
 test("hydrates current user stats from dashboard payload and clears them", () => {

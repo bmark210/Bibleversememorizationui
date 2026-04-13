@@ -1,11 +1,11 @@
-import type { bible_memory_db_internal_domain_PlayerProfile } from "@/api/models/bible_memory_db_internal_domain_PlayerProfile";
+import type { domain_PlayerProfile } from "../models/domain_PlayerProfile";
 import { UsersService } from "./UsersService";
 
-export type PlayerProfile = bible_memory_db_internal_domain_PlayerProfile;
+export type PlayerProfile = domain_PlayerProfile;
 
 export async function fetchPlayerProfile(
-  telegramId: string,
+  viewerTelegramId: string,
   targetTelegramId: string,
 ): Promise<PlayerProfile> {
-  return UsersService.getPlayerProfile(telegramId, targetTelegramId);
+  return UsersService.getPlayerProfile(viewerTelegramId, targetTelegramId);
 }

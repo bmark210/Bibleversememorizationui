@@ -1,35 +1,28 @@
 "use client";
 
 import React from "react";
+import { Moon } from "lucide-react";
 import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
 import { useTelegram } from "../contexts/TelegramContext";
-import { isAdminTelegramId } from "@/lib/admins";
 import { Feedback } from "./Feedback";
 import { AppSurface } from "./ui/AppSurface";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import {
-  AVATAR_SIZE,
-  PAGE_COMPACT_PADDING,
-} from "./ui/responsiveTokens";
+import { PAGE_COMPACT_PADDING } from "./ui/responsiveTokens";
 import { Switch } from "./ui/switch";
 import { cn } from "./ui/utils";
 
 type Theme = "light" | "dark";
 
-const PAGE_SHELL =
-  "mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col";
+// overflow-hidden (not auto) so flex-1 / flex-[N] children truly share
+// the fixed viewport height without being able to grow past it.
+const PAGE_SHELL = "mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden";
+const SECTION_LABEL = "shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-text-muted";
 
-const SETTINGS_ROW =
-  "flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5";
-
-const FONT_BUTTON =
-  "flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow]";
-
-const TRAINING_FONT_OPTIONS = [
-  { value: "small", label: "Малый", preview: 14 },
-  { value: "medium", label: "Средний", preview: 17 },
-  { value: "large", label: "Крупный", preview: 20 },
-  { value: "extra-large", label: "Очень крупный", preview: 24 },
+const FONT_OPTIONS = [
+  { value: "small",       preview: 16, label: "Малый"         },
+  { value: "medium",      preview: 20, label: "Средний"       },
+  { value: "large",       preview: 24, label: "Крупный"       },
+  { value: "extra-large", preview: 28, label: "Очень крупный" },
 ] as const;
 
 interface ProfileProps {
@@ -45,12 +38,7 @@ interface ProfileProps {
 }
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 }
 
 export function Profile({
@@ -62,179 +50,126 @@ export function Profile({
 }: ProfileProps) {
   const { user } = useTelegram();
   const effectiveAvatarUrl = currentUserAvatarUrl ?? user?.photoUrl ?? null;
-  const trainingFontStore = useTrainingFontStore();
-  const trainingFontSize = trainingFontStore.trainingFontSize;
-  const normalizedTelegramId = telegramId?.trim() ?? "";
-  const hasEmbeddedReviews = isAdminTelegramId(normalizedTelegramId);
+  const { trainingFontSize, setTrainingFontSize } = useTrainingFontStore();
 
   const profileName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
-    "Пользователь Telegram";
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "Пользователь";
   const usernameLabel = user?.username
     ? `@${user.username}`
-    : telegramId
-      ? `ID ${telegramId}`
-      : "Telegram";
-  const canOpenCurrentProfile = Boolean(telegramId && onOpenPlayerProfile);
+    : telegramId ? `ID ${telegramId}` : "Telegram";
+  const canOpenProfile = Boolean(telegramId && onOpenPlayerProfile);
 
-  const handleOpenCurrentProfile = React.useCallback(() => {
+  const handleOpenProfile = React.useCallback(() => {
     if (!telegramId || !onOpenPlayerProfile) return;
-    onOpenPlayerProfile({
-      telegramId,
-      name: profileName,
-      avatarUrl: effectiveAvatarUrl,
-    });
+    onOpenPlayerProfile({ telegramId, name: profileName, avatarUrl: effectiveAvatarUrl });
   }, [effectiveAvatarUrl, onOpenPlayerProfile, profileName, telegramId]);
 
+  const avatarEl = (
+    <Avatar className="h-14 w-14 shrink-0 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]">
+      {effectiveAvatarUrl ? <AvatarImage src={effectiveAvatarUrl} alt={profileName} /> : null}
+      <AvatarFallback className="bg-status-mastered-soft text-brand-primary text-base font-semibold">
+        {getInitials(profileName)}
+      </AvatarFallback>
+    </Avatar>
+  );
+
   return (
-    <section
-      className={cn(
-        PAGE_SHELL,
-        PAGE_COMPACT_PADDING,
-        hasEmbeddedReviews
-          ? "overflow-hidden"
-          : "overflow-y-auto overscroll-contain",
-      )}
-    >
-      <AppSurface
-        className={cn(
-          "flex flex-col gap-0 p-0",
-          hasEmbeddedReviews
-            ? "h-full min-h-0 overflow-hidden"
-            : "min-h-full overflow-auto",
-        )}
-      >
-        {canOpenCurrentProfile ? (
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
+
+      {/* ── User card — fixed/shrink height ───────────────────────── */}
+      <AppSurface className="shrink-0 p-4 sm:p-5">
+        {canOpenProfile ? (
           <button
             type="button"
-            onClick={handleOpenCurrentProfile}
-            className="flex items-center gap-3 px-4 py-4 text-left sm:px-5 sm:py-5"
-            aria-label="Открыть ваш профиль"
+            onClick={handleOpenProfile}
+            className="flex w-full items-center gap-4 text-left"
+            aria-label="Открыть профиль"
           >
-            <Avatar
-              className={cn(
-                AVATAR_SIZE,
-                "border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
-              )}
-            >
-              {effectiveAvatarUrl ? (
-                <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
-              ) : null}
-              <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
-                {getInitials(profileName || "TG")}
-              </AvatarFallback>
-            </Avatar>
-
+            {avatarEl}
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold text-text-primary">
-                {profileName}
-              </div>
-              <div className="truncate text-sm text-text-muted">
-                {usernameLabel}
-              </div>
+              <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+              <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
             </div>
           </button>
         ) : (
-          <div className="flex items-center gap-3 px-4 py-4 sm:px-5 sm:py-5">
-            <Avatar
-              className={cn(
-                AVATAR_SIZE,
-                "border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
-              )}
-            >
-              {effectiveAvatarUrl ? (
-                <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
-              ) : null}
-              <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
-                {getInitials(profileName || "TG")}
-              </AvatarFallback>
-            </Avatar>
-
+          <div className="flex items-center gap-4">
+            {avatarEl}
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold text-text-primary">
-                {profileName}
-              </div>
-              <div className="truncate text-sm text-text-muted">
-                {usernameLabel}
-              </div>
+              <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+              <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
             </div>
           </div>
         )}
+      </AppSurface>
 
-        <div className="border-t border-border-subtle">
-          <div className="px-4 pt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted sm:px-5">
-            Настройки
-          </div>
+      {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
+      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+        <div className={cn(SECTION_LABEL, "mb-2 mt-2")}>Настройки</div>
 
-          <div className="px-4 py-3 sm:px-5 sm:py-4">
-            <div className="rounded-[1.2rem] border border-border-subtle bg-bg-elevated/70">
-              <div className={SETTINGS_ROW}>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-text-primary">
-                    Тема
-                  </div>
-                  <div className="text-xs text-text-muted">Тёмная тема</div>
-                </div>
+        <div className="h-full grid grid-rows-[1fr_1fr] gap-3">
 
-                <Switch
-                  checked={theme === "dark"}
-                  onCheckedChange={onToggleTheme}
-                  aria-label="Тёмная тема"
-                />
+          {/* Theme row */}
+          <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-2">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
+                <Moon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
               </div>
-
-              <div className="border-t border-border-subtle" />
-
-              <div className={SETTINGS_ROW}>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-text-primary">
-                    Шрифт
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap justify-end gap-1.5">
-                  {TRAINING_FONT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() =>
-                        trainingFontStore.setTrainingFontSize(option.value)
-                      }
-                      className={cn(
-                        FONT_BUTTON,
-                        trainingFontSize === option.value
-                          ? "border border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-soft)]"
-                          : "border border-transparent bg-bg-subtle text-text-secondary hover:bg-bg-surface hover:text-text-primary",
-                      )}
-                      aria-label={`Шрифт: ${option.label}`}
-                    >
-                      <span
-                        style={{ fontSize: option.preview }}
-                        className="font-serif leading-none"
-                      >
-                        Аа
-                      </span>
-                    </button>
-                  ))}
+              <div>
+                <div className="text-base font-medium text-text-primary leading-none">Тёмная тема</div>
+                <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">
+                  {theme === "dark" ? "Включена" : "Выключена"}
                 </div>
               </div>
             </div>
+            <Switch checked={theme === "dark"} onCheckedChange={onToggleTheme} aria-label="Тёмная тема" />
           </div>
-        </div>
 
-        <div
-          className={cn(
-            "border-t border-border-subtle px-4 py-4 sm:px-5 sm:py-5",
-            hasEmbeddedReviews
-              ? "flex min-h-0 flex-1 flex-col"
-              : "mt-auto",
-          )}
-        >
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
-            Отзыв
+          {/* Font size list — fills ALL remaining space evenly */}
+          <div className="flex flex-col flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
+
+            <div className="shrink-0 border-b border-border-subtle px-4 py-[0.875rem]">
+              <div className="text-base font-medium text-text-primary leading-none">Шрифт тренировки</div>
+            </div>
+
+            {/* Each row claims equal share via flex-1 */}
+            <div className="flex flex-1 divide-x divide-border-subtle">
+              {FONT_OPTIONS.map((opt) => {
+                const active = trainingFontSize === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTrainingFontSize(opt.value)}
+                    aria-label={`Шрифт: ${opt.label}`}
+                    className={cn(
+                      "flex flex-1 items-center gap-4 px-4 py-2 transition-colors",
+                      active
+                        ? "bg-status-mastered-soft/35"
+                        : "hover:bg-bg-surface/40 active:bg-bg-surface/60",
+                    )}
+                  >
+                    <span
+                      style={{ fontSize: opt.preview }}
+                      className={cn(
+                        "w-10 shrink-0 text-center font-serif leading-none",
+                        active ? "text-brand-primary" : "text-text-secondary",
+                      )}
+                    >
+                      Аа
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <Feedback telegramId={telegramId} variant="profile" />
+
         </div>
+      </AppSurface>
+
+      {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
+      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+        <div className={cn(SECTION_LABEL, "mb-2 mt-2")}>Обратная связь</div>
+        <Feedback telegramId={telegramId} />
       </AppSurface>
     </section>
   );

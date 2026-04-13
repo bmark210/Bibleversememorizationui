@@ -272,6 +272,7 @@ export function MyVersesSectionsLayout({
   );
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [atTop, setAtTop] = useState(true);
+  const [atBottom, setAtBottom] = useState(true);
 
   useEffect(() => {
     const maxIndex = Math.max(0, navItems.length - 1);
@@ -376,7 +377,14 @@ export function MyVersesSectionsLayout({
         scrolled={!atTop}
       />
 
-      <div className="relative min-h-0 flex-1">
+      <div
+        className="relative min-h-0 flex-1"
+        style={(() => {
+          if (atBottom) return {};
+          const mask = `linear-gradient(to bottom, black 0px, black calc(100% - 52px), transparent 100%)`;
+          return { maskImage: mask, WebkitMaskImage: mask };
+        })()}
+      >
         <Virtuoso<MyVersesVirtualRow>
           ref={virtuosoRef}
           data={rows}
@@ -386,6 +394,7 @@ export function MyVersesSectionsLayout({
           computeItemKey={(_, row) => row.rowKey}
           defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
           atTopStateChange={setAtTop}
+          atBottomStateChange={setAtBottom}
           rangeChanged={handleRangeChanged}
           scrollSeekConfiguration={
             shouldEnableScrollSeek

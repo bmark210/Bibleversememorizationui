@@ -125,7 +125,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
   } = useDashboardData(telegramId);
 
@@ -356,7 +355,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           isContentReady={!isBootstrapping}
           hideChrome={activeScreen === "training" && isTrainingSessionFullscreen}
           contentMode={
-            activeScreen === "dashboard" || activeScreen === "community"
+            activeScreen === "dashboard" || activeScreen === "community" || activeScreen === "profile"
               ? "fit"
               : activeScreen === "training" || activeScreen === "verses"
                 ? "fit-strict"
@@ -380,15 +379,10 @@ export default function App({ onInitialContentReady }: AppProps) {
                   todayVerses={verses}
                   dashboardStats={dashboardStats}
                   isDashboardStatsLoading={isDashboardStatsLoading}
-                  dashboardLeaderboard={dashboardLeaderboard}
-                  isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
-                  dashboardFriendsActivity={dashboardFriendsActivity}
-                  isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                   currentTelegramId={telegramId}
                   currentUserAvatarUrl={currentUserAvatarUrl}
                   onOpenTraining={handleOpenTraining}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
-                  onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
                   isInitializingData={isBootstrapping}
                 />
               </section>

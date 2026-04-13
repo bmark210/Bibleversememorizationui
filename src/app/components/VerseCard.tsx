@@ -394,6 +394,21 @@ export function VerseCard({
             )}
           />
         ) : null}
+
+        {/* ── Decorative background quote mark ───────────────────────────── */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-2 -right-1 select-none overflow-hidden leading-none"
+          style={{
+            fontSize: 'clamp(7rem, 20vw, 11rem)',
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            color: 'currentColor',
+            opacity: 0.038,
+            lineHeight: 1,
+          }}
+        >
+          &#x201D;
+        </div>
         {/* {isPreviewToneActive && (
           <>
             <div

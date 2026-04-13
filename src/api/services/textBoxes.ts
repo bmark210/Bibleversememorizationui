@@ -1,303 +1,150 @@
-import { mapUserVerseToAppVerse } from "@/app/domain/verse";
+import type { domain_AnchorTrainingResult } from "@/api/models/domain_AnchorTrainingResult";
+import type { domain_AnchorTrainingSessionInput } from "@/api/models/domain_AnchorTrainingSessionInput";
+import type { domain_FlashcardSessionInput } from "@/api/models/domain_FlashcardSessionInput";
+import type { domain_FlashcardSessionResult } from "@/api/models/domain_FlashcardSessionResult";
+import { TextBoxesService } from "@/api/services/TextBoxesService";
+import { UserVersesService } from "@/api/services/UserVersesService";
 import type {
   AddVerseToBoxRequest,
   AddVerseToBoxResult,
   PublicTextBoxDetailResponse,
-  PublicTextBoxDetailResponseRecord,
   PublicTextBoxesPageResponse,
   RemoveTextFromBoxResult,
   ReplaceLearningVerseInBoxRequest,
-  TextBoxVisibility,
   TextBoxSummary,
   TextBoxVersesResponse,
-  TextBoxVersesResponseRecord,
-  VerseStatusMutationResult,
+  TextBoxVisibility,
 } from "@/app/types/textBox";
-import { publicApiUrl } from "@/lib/publicApiBase";
 
-export type ReferenceTrainerVersePoolResponse = {
-  verses: ReturnType<typeof mapUserVerseToAppVerse>[];
-  totalCount: number;
-  minRequired: number;
-};
-
-export type FlashcardVerseItem = {
-  externalVerseId?: string;
-  text?: string;
-  reference?: string;
-  masteryLevel?: number;
-  repetitions?: number;
-  status?: string;
-  flow?: string;
-  verse?: { externalVerseId?: string };
-};
-
-export type FlashcardVersesResponse = {
-  verses: FlashcardVerseItem[];
-  totalCount: number;
-};
-
-export type AnchorTrainingResult = {
-  externalVerseId: string;
-  modeId: string;
-  outcome: string;
-};
-
-export type FlashcardResult = {
-  externalVerseId: string;
-  mode: string;
-  remembered: boolean;
-};
-
-export type TrainingSessionXPResponse = {
-  xpAwarded: number;
-  newTotalXp: number;
-};
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const payload = await response.json();
-      if (
-        payload &&
-        typeof payload.error === "string" &&
-        payload.error.trim()
-      ) {
-        message = payload.error.trim();
-      }
-    } catch {
-      // Ignore malformed error payloads and keep the status-based message.
-    }
-    throw new Error(message);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
-}
-
-function withTranslation(path: string, translation?: string) {
-  const normalized = translation?.trim();
-  if (!normalized) {
-    return publicApiUrl(path);
-  }
-  const separator = path.includes("?") ? "&" : "?";
-  return publicApiUrl(
-    `${path}${separator}translation=${encodeURIComponent(normalized)}`,
-  );
-}
-
-function mapTextBoxVersesResponse(
-  payload: TextBoxVersesResponseRecord,
-): TextBoxVersesResponse {
-  return {
-    box: payload.box,
-    totalCount: payload.totalCount ?? payload.items?.length ?? 0,
-    items: (payload.items ?? []).map((item) => ({
-      verse: mapUserVerseToAppVerse(item.verse),
-    })),
-  };
-}
-
-function normalizePublicTextBoxOwner<
-  T extends { owner: { avatarUrl: string | null } },
->(item: T): T {
-  return {
-    ...item,
-    owner: {
-      ...item.owner,
-      avatarUrl:
-        typeof item.owner.avatarUrl === "string" && item.owner.avatarUrl.trim()
-          ? item.owner.avatarUrl.trim()
-          : null,
-    },
-  };
-}
-
-function mapPublicTextBoxDetailResponse(
-  payload: PublicTextBoxDetailResponseRecord,
-): PublicTextBoxDetailResponse {
-  return {
-    box: normalizePublicTextBoxOwner(payload.box),
-    totalCount: payload.totalCount ?? payload.items?.length ?? 0,
-    items: (payload.items ?? []).map((item) => ({
-      verse: mapUserVerseToAppVerse(item.verse),
-    })),
-  };
-}
+// ── Text Box CRUD ─────────────────────────────────────────────────────────────
 
 export async function fetchTextBoxes(
   telegramId: string,
   translation?: string,
 ): Promise<TextBoxSummary[]> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes`,
-      translation,
-    ),
-    { cache: "no-store" },
-  );
-  return parseApiResponse<TextBoxSummary[]>(response);
+  return TextBoxesService.listTextBoxes(telegramId, translation) as Promise<TextBoxSummary[]>;
 }
 
 export async function createTextBox(
   telegramId: string,
   title: string,
-  translation?: string,
   visibility: TextBoxVisibility = "private",
+  translation?: string,
 ): Promise<TextBoxSummary> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes`,
-      translation,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, visibility }),
-    },
-  );
-  return parseApiResponse<TextBoxSummary>(response);
+  return TextBoxesService.createTextBox(
+    telegramId,
+    { title, visibility },
+    translation,
+  ) as Promise<TextBoxSummary>;
 }
 
 export async function updateTextBox(
   telegramId: string,
   boxId: string,
-  request: {
-    title?: string;
-    visibility?: TextBoxVisibility;
-  },
+  patch: { title?: string; visibility?: TextBoxVisibility },
   translation?: string,
 ): Promise<TextBoxSummary> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}`,
-      translation,
-    ),
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
-  );
-  return parseApiResponse<TextBoxSummary>(response);
-}
-
-export async function fetchPublicTextBoxes(
-  params: {
-    translation?: string;
-    limit?: number;
-    offset?: number;
-  } = {},
-): Promise<PublicTextBoxesPageResponse> {
-  const query = new URLSearchParams();
-  if (params.translation?.trim()) {
-    query.set("translation", params.translation.trim());
-  }
-  if (typeof params.limit === "number") {
-    query.set("limit", String(params.limit));
-  }
-  if (typeof params.offset === "number") {
-    query.set("offset", String(params.offset));
-  }
-
-  const suffix = query.size > 0 ? `?${query.toString()}` : "";
-  const response = await fetch(
-    publicApiUrl(`/api/text-boxes/public${suffix}`),
-    {
-      cache: "no-store",
-    },
-  );
-  const payload = await parseApiResponse<PublicTextBoxesPageResponse>(response);
-  return {
-    ...payload,
-    items: (payload.items ?? []).map((item) =>
-      normalizePublicTextBoxOwner(item),
-    ),
-  };
-}
-
-export async function fetchPublicTextBoxDetail(
-  boxId: string,
-  translation?: string,
-): Promise<PublicTextBoxDetailResponse> {
-  const response = await fetch(
-    withTranslation(
-      `/api/text-boxes/public/${encodeURIComponent(boxId)}`,
-      translation,
-    ),
-    { cache: "no-store" },
-  );
-  const payload =
-    await parseApiResponse<PublicTextBoxDetailResponseRecord>(response);
-  return mapPublicTextBoxDetailResponse(payload);
-}
-
-export async function importPublicTextBox(
-  telegramId: string,
-  boxId: string,
-  translation?: string,
-): Promise<TextBoxSummary> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/import-public/${encodeURIComponent(boxId)}`,
-      translation,
-    ),
-    { method: "POST" },
-  );
-  return parseApiResponse<TextBoxSummary>(response);
+  return TextBoxesService.updateTextBox(
+    telegramId,
+    boxId,
+    patch,
+    translation,
+  ) as Promise<TextBoxSummary>;
 }
 
 export async function deleteTextBox(
   telegramId: string,
   boxId: string,
 ): Promise<void> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}`,
-    ),
-    { method: "DELETE" },
-  );
-  await parseApiResponse<{ ok: boolean }>(response);
+  await TextBoxesService.deleteTextBox(telegramId, boxId);
 }
+
+export async function importPublicTextBox(
+  telegramId: string,
+  sourceBoxId: string,
+  translation?: string,
+): Promise<TextBoxSummary> {
+  return TextBoxesService.importPublicTextBox(
+    telegramId,
+    sourceBoxId,
+    translation,
+  ) as Promise<TextBoxSummary>;
+}
+
+// ── Public Boxes ──────────────────────────────────────────────────────────────
+
+export async function fetchPublicTextBoxes(params: {
+  translation?: string;
+  limit: number;
+  offset: number;
+}): Promise<PublicTextBoxesPageResponse> {
+  return TextBoxesService.listPublicTextBoxes(
+    params.translation,
+    params.limit,
+    params.offset,
+  ) as Promise<PublicTextBoxesPageResponse>;
+}
+
+export async function fetchFriendTextBoxes(params: {
+  telegramId: string;
+  translation?: string;
+  limit: number;
+  offset: number;
+}): Promise<PublicTextBoxesPageResponse> {
+  return TextBoxesService.listFriendTextBoxes(
+    params.telegramId,
+    params.translation,
+    params.limit,
+    params.offset,
+  ) as Promise<PublicTextBoxesPageResponse>;
+}
+
+export async function fetchPublicTextBoxDetail(
+  boxId: string,
+  telegramId?: string,
+  translation?: string,
+): Promise<PublicTextBoxDetailResponse> {
+  return TextBoxesService.getPublicTextBox(
+    boxId,
+    telegramId,
+    translation,
+  ) as Promise<PublicTextBoxDetailResponse>;
+}
+
+// ── Box Verses ────────────────────────────────────────────────────────────────
 
 export async function fetchTextBoxVerses(
   telegramId: string,
   boxId: string,
   translation?: string,
 ): Promise<TextBoxVersesResponse> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}/verses`,
-      translation,
-    ),
-    { cache: "no-store" },
-  );
-  const payload = await parseApiResponse<TextBoxVersesResponseRecord>(response);
-  return mapTextBoxVersesResponse(payload);
+  return TextBoxesService.listTextBoxVerses(
+    telegramId,
+    boxId,
+    translation,
+  ) as Promise<TextBoxVersesResponse>;
 }
 
 export async function addVerseToTextBox(
   telegramId: string,
   boxId: string,
-  request: AddVerseToBoxRequest,
+  body: AddVerseToBoxRequest,
   translation?: string,
 ): Promise<AddVerseToBoxResult> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}/verses`,
-      translation,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
-  );
-  return parseApiResponse<AddVerseToBoxResult>(response);
+  return TextBoxesService.addVerseToTextBox(
+    telegramId,
+    boxId,
+    { externalVerseId: body.externalVerseId },
+    translation,
+  ) as Promise<AddVerseToBoxResult>;
+}
+
+export async function replaceLearningVerseInTextBox(
+  telegramId: string,
+  boxId: string,
+  body: ReplaceLearningVerseInBoxRequest,
+) {
+  return TextBoxesService.replaceLearningVerseInTextBox(telegramId, boxId, body);
 }
 
 export async function removeTextFromBox(
@@ -305,78 +152,34 @@ export async function removeTextFromBox(
   boxId: string,
   externalVerseId: string,
 ): Promise<RemoveTextFromBoxResult> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}/verses/${encodeURIComponent(externalVerseId)}`,
-    ),
-    { method: "DELETE" },
-  );
-  return parseApiResponse<RemoveTextFromBoxResult>(response);
+  return TextBoxesService.removeVerseFromTextBox(
+    telegramId,
+    boxId,
+    externalVerseId,
+  ) as Promise<RemoveTextFromBoxResult>;
 }
 
-export async function replaceLearningVerseInTextBox(
+// ── Verse Status ──────────────────────────────────────────────────────────────
+
+export async function patchVerseStatus(
   telegramId: string,
-  boxId: string,
-  request: ReplaceLearningVerseInBoxRequest,
-): Promise<void> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}/replace-learning`,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
-  );
-  await parseApiResponse<unknown>(response);
+  externalVerseId: string,
+  status: "LEARNING" | "STOPPED" | "QUEUE",
+) {
+  return UserVersesService.patchUserVerse(telegramId, externalVerseId, {
+    status,
+  });
 }
 
-export async function fetchTextBoxReferenceTrainer(
-  telegramId: string,
-  boxId: string,
-  limit = 12,
-  translation?: string,
-): Promise<ReferenceTrainerVersePoolResponse> {
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/${encodeURIComponent(boxId)}/training/reference-trainer?limit=${limit}`,
-      translation,
-    ),
-    { cache: "no-store" },
-  );
-  const payload = await parseApiResponse<{
-    verses: Parameters<typeof mapUserVerseToAppVerse>[0][];
-    totalCount: number;
-    minRequired: number;
-  }>(response);
+// ── Flashcard Training ────────────────────────────────────────────────────────
 
-  return {
-    verses: (payload.verses ?? []).map((verse) =>
-      mapUserVerseToAppVerse(verse),
-    ),
-    totalCount: payload.totalCount ?? payload.verses?.length ?? 0,
-    minRequired: payload.minRequired ?? 1,
-  };
-}
-
-export async function submitTextBoxReferenceTrainerSession(params: {
-  telegramId: string;
-  boxId: string;
-  results: AnchorTrainingResult[];
-}): Promise<TrainingSessionXPResponse> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(params.telegramId)}/text-boxes/${encodeURIComponent(params.boxId)}/training/reference-trainer/session`,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ results: params.results }),
-    },
-  );
-  return parseApiResponse<TrainingSessionXPResponse>(response);
-}
+export type FlashcardResult = domain_FlashcardSessionResult;
+export type FlashcardVersesResponse = Awaited<
+  ReturnType<typeof TextBoxesService.getTextBoxFlashcard>
+>;
+export type TrainingSessionXPResponse = Awaited<
+  ReturnType<typeof TextBoxesService.textBoxFlashcardSession>
+>;
 
 export async function fetchTextBoxFlashcardVerses(params: {
   telegramId: string;
@@ -384,49 +187,54 @@ export async function fetchTextBoxFlashcardVerses(params: {
   limit?: number;
   translation?: string;
 }): Promise<FlashcardVersesResponse> {
-  const limit = params.limit ?? 20;
-  const response = await fetch(
-    withTranslation(
-      `/api/users/${encodeURIComponent(params.telegramId)}/text-boxes/${encodeURIComponent(params.boxId)}/training/flashcard?limit=${limit}`,
-      params.translation,
-    ),
-    { cache: "no-store" },
+  return TextBoxesService.getTextBoxFlashcard(
+    params.telegramId,
+    params.boxId,
+    params.limit,
+    params.translation,
   );
-  return parseApiResponse<FlashcardVersesResponse>(response);
 }
 
 export async function submitTextBoxFlashcardSession(params: {
   telegramId: string;
   boxId: string;
-  results: FlashcardResult[];
+  results: domain_FlashcardSessionResult[];
 }): Promise<TrainingSessionXPResponse> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(params.telegramId)}/text-boxes/${encodeURIComponent(params.boxId)}/training/flashcard/session`,
-    ),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ results: params.results }),
-    },
+  const body: domain_FlashcardSessionInput = { results: params.results };
+  return TextBoxesService.textBoxFlashcardSession(
+    params.telegramId,
+    params.boxId,
+    body,
   );
-  return parseApiResponse<TrainingSessionXPResponse>(response);
 }
 
-export async function patchVerseStatus(
+// ── Reference Trainer ─────────────────────────────────────────────────────────
+
+export type AnchorTrainingResult = domain_AnchorTrainingResult;
+
+export async function fetchTextBoxReferenceTrainer(
   telegramId: string,
-  externalVerseId: string,
-  status: "LEARNING" | "STOPPED" | "QUEUE",
-): Promise<VerseStatusMutationResult> {
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(telegramId)}/verses/${encodeURIComponent(externalVerseId)}`,
-    ),
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    },
+  boxId: string,
+  limit?: number,
+  translation?: "NRT" | "SYNOD" | "RBS2" | "BTI",
+) {
+  return TextBoxesService.getTextBoxReferenceTrainer(
+    telegramId,
+    boxId,
+    limit,
+    translation,
   );
-  return parseApiResponse<VerseStatusMutationResult>(response);
+}
+
+export async function submitTextBoxReferenceTrainerSession(params: {
+  telegramId: string;
+  boxId: string;
+  results: domain_AnchorTrainingResult[];
+}) {
+  const body: domain_AnchorTrainingSessionInput = { results: params.results };
+  return TextBoxesService.textBoxReferenceTrainerSession(
+    params.telegramId,
+    params.boxId,
+    body,
+  );
 }

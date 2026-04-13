@@ -1,3 +1,18 @@
-import type { bible_memory_db_internal_domain_TrainingStepHTTPResponse } from "./bible_memory_db_internal_domain_TrainingStepHTTPResponse";
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+import type { domain_UserVerse } from './domain_UserVerse';
+export type domain_TrainingStepHTTPResponse = {
+    graduatedToReview?: boolean;
+    newTotalXp?: number;
+    nextTrainingModeId?: number;
+    /**
+     * PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot.
+     */
+    promotedVerseIds?: Array<string>;
+    reviewWasSuccessful?: boolean;
+    userVerse?: domain_UserVerse;
+    xpDelta?: number;
+};
 
-export type domain_TrainingStepHTTPResponse = bible_memory_db_internal_domain_TrainingStepHTTPResponse;

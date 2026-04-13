@@ -1,7 +1,14 @@
 "use client";
 
 import React from "react";
-import { ArrowUpRight, Crown, Medal, Trophy, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Crown,
+  Dumbbell,
+  Medal,
+  Trophy,
+  X,
+} from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
@@ -10,18 +17,15 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
 import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
-import type {
-  DashboardCompactFriendActivityEntry,
-  DashboardCompactFriendsActivityResponse,
-} from "@/api/services/friendsActivity";
 import {
+  type DashboardCompactFriendActivityEntry,
+  type DashboardCompactFriendsActivityResponse,
   FRIENDS_ACTIVITY_WINDOW_SIZE,
   fetchDashboardFriendsActivity,
-} from "@/api/services/friendsActivity";
-import { LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
+} from "../../../api/services/friendsActivity";
+import { LEADERBOARD_WINDOW_SIZE } from "../../../api/services/leaderboard";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
-import { selectCompactLeaderboardEntries } from "./leaderboardPresentation";
 import { AppSurface } from "../ui/AppSurface";
 import {
   AVATAR_SIZE,
@@ -30,7 +34,6 @@ import {
   HEADING_TEXT,
   HERO_TEXT,
   ROW_GAP,
-  SECTION_GAP,
   SHOW_ME_BTN,
   STAT_LABEL,
   STAT_VALUE,
@@ -40,24 +43,32 @@ import { cn } from "../ui/utils";
 const STAT_TONE_STYLES = {
   neutral: {
     panelClassName: "border-border-subtle bg-bg-elevated",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--brand-primary-rgb),0.16)_0%,transparent_72%)]",
     labelClassName: "text-text-muted",
     valueClassName: "text-text-primary",
   },
   learning: {
     panelClassName:
       "border-status-learning/25 bg-status-learning-soft text-status-learning",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--accent-olive-rgb),0.2)_0%,transparent_72%)]",
     labelClassName: "text-status-learning/80",
     valueClassName: "text-status-learning",
   },
   review: {
     panelClassName:
       "border-status-review/25 bg-status-review-soft text-status-review",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--state-info-rgb),0.18)_0%,transparent_72%)]",
     labelClassName: "text-status-review/80",
     valueClassName: "text-status-review",
   },
   mastered: {
     panelClassName:
       "border-status-mastered/30 bg-status-mastered-soft text-status-mastered",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--accent-gold-rgb),0.22)_0%,transparent_72%)]",
     labelClassName: "text-status-mastered/80",
     valueClassName: "text-status-mastered",
   },
@@ -83,9 +94,6 @@ type DashboardPlayerPreview = {
   name: string;
   avatarUrl: string | null;
 };
-
-const DASHBOARD_WELCOME_SEEN_STORAGE_KEY =
-  "bible-memory.dashboard-welcome-seen.v1";
 
 function getInitials(name: string) {
   return name
@@ -299,11 +307,8 @@ function DashboardFullscreenDialog({
 type DashboardWelcomeSectionProps = {
   user: DashboardUser;
   currentUserAvatarUrl?: string | null;
-  learningVersesCount: number;
-  dueReviewVerses: number;
-  dailyStreak?: number | null;
-  onOpenTraining?: () => void;
   onOpenCurrentUserProfile?: () => void;
+  onOpenTraining?: () => void;
 };
 
 function WelcomeAvatar({
@@ -332,23 +337,27 @@ function WelcomeAvatar({
   );
 }
 
-function WelcomeHeading({
-  isFirstAppVisit,
-  firstName,
-}: {
-  isFirstAppVisit: boolean;
-  firstName: string;
-}) {
+function WelcomeHeading({ firstName }: { firstName: string }) {
   return (
     <h1
       className={cn(
         "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
         HERO_TEXT,
-        "text-[clamp(2rem,6.8vw,2.9rem)] narrow:text-[clamp(1.7rem,7.6vw,2.2rem)]",
+        "text-[clamp(1.55rem,5vw,2rem)] narrow:text-[1.5rem]",
       )}
     >
-      {isFirstAppVisit ? `Привет, ${firstName}` : `С возвращением`}
+      {`Привет, ${firstName}`}
     </h1>
+  );
+}
+
+function WelcomeSubtitle({ hasUser }: { hasUser: boolean }) {
+  return (
+    <p className="max-w-[28rem] text-sm leading-relaxed text-text-secondary sm:text-[15px]">
+      {hasUser
+        ? "Продолжайте с того места, где остановились, и держите стихи в памяти."
+        : "Откройте тренировку и продолжайте учить стихи в своём ритме."}
+    </p>
   );
 }
 
@@ -357,57 +366,44 @@ export const DashboardWelcomeSection = React.memo(
     user,
     currentUserAvatarUrl,
     onOpenCurrentUserProfile,
+    onOpenTraining,
   }: DashboardWelcomeSectionProps) {
-    const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
-
-    React.useEffect(() => {
-      if (typeof window === "undefined") return;
-      try {
-        setIsFirstAppVisit(
-          window.localStorage.getItem(DASHBOARD_WELCOME_SEEN_STORAGE_KEY) !==
-            "1",
-        );
-      } catch {
-        setIsFirstAppVisit(false);
-      }
-    }, []);
-
     return (
-      <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
-        <div
-          className={cn(
-            "flex flex-col lg:flex-row lg:items-center lg:justify-between",
-            SECTION_GAP,
-          )}
-        >
-          <div className="min-w-0">
+      <DashboardSurface className="relative flex min-h-[13rem] flex-col overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.95),rgba(var(--accent-gold-rgb),0.08))] sm:min-h-[13.75rem] sm:rounded-[2rem]">
+        {/* <div className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-gold-rgb),0.24)_0%,transparent_68%)]" /> */}
+      <div className="pointer-events-none absolute -right-8 -top-14 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-bronze-rgb),0.16)_0%,transparent_74%)]" />
+        
+        
+        <div className="pointer-events-none absolute -bottom-16 left-[-1.75rem] h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-olive-rgb),0.14)_0%,transparent_72%)]" />
+
+        <div className="relative flex flex-1 flex-col">
+          {/* Top: avatar + name */}
+          <div className="shrink-0">
             {user ? (
               onOpenCurrentUserProfile ? (
                 <button
                   type="button"
                   onClick={onOpenCurrentUserProfile}
-                  className="flex items-center gap-3.5 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
+                  className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
                   aria-label={`Открыть профиль ${user.firstName}`}
                 >
                   <WelcomeAvatar
                     currentUserAvatarUrl={currentUserAvatarUrl}
                     firstName={user.firstName}
                   />
-                  <WelcomeHeading
-                    isFirstAppVisit={isFirstAppVisit}
-                    firstName={user.firstName}
-                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading firstName={user.firstName} />
+                  </div>
                 </button>
               ) : (
-                <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <WelcomeAvatar
                     currentUserAvatarUrl={currentUserAvatarUrl}
                     firstName={user.firstName}
                   />
-                  <WelcomeHeading
-                    isFirstAppVisit={isFirstAppVisit}
-                    firstName={user.firstName}
-                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading firstName={user.firstName} />
+                  </div>
                 </div>
               )
             ) : (
@@ -415,12 +411,30 @@ export const DashboardWelcomeSection = React.memo(
                 className={cn(
                   "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
                   HERO_TEXT,
+                  "text-[clamp(1.55rem,5vw,2rem)] narrow:text-[1.5rem]",
                 )}
               >
-                С возвращением
+                Главная
               </h1>
             )}
           </div>
+
+          {/* Middle: subtitle grows to fill available space */}
+          <div className="flex flex-1 items-center py-3 sm:py-4">
+            <WelcomeSubtitle hasUser={Boolean(user)} />
+          </div>
+
+          {/* Bottom: CTA */}
+          {onOpenTraining ? (
+            <Button
+              type="button"
+              onClick={onOpenTraining}
+              className="h-12 w-full rounded-[1.25rem] px-5 text-[15px] font-semibold shadow-[var(--shadow-elevated)] sm:w-fit sm:min-w-[13rem] sm:px-6"
+            >
+              <Dumbbell className="mr-2 h-4 w-4 fill-current" />
+              Тренироваться
+            </Button>
+          ) : null}
         </div>
       </DashboardSurface>
     );
@@ -438,63 +452,110 @@ export const DashboardTrainingStatsCard = React.memo(
     statsCards,
   }: DashboardTrainingStatsCardProps) {
     return (
-      <DashboardSurface className="shrink-0">
-        <h3
-          className={cn(
-            "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
-            HEADING_TEXT,
-            HEADING_MB,
-            "text-[1.08rem] narrow:text-base sm:text-xl",
-          )}
-        >
-          Моя статистика
-        </h3>
+      <DashboardSurface className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(var(--bg-elevated-rgb),0.98),rgba(var(--bg-surface-rgb),0.88))] sm:rounded-[2rem]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(var(--accent-gold-rgb),0.08),transparent)]" />
 
-        <div className={cn("grid grid-cols-3", GRID_GAP)}>
-          {statsCards.map((item) => {
-            const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
-            return (
-              <div
-                key={item.key}
-                className={cn(
-                  "flex min-h-[3.8rem] flex-col justify-center rounded-[1.2rem] border px-2.5 py-3 text-start shadow-[var(--shadow-soft)] sm:min-h-[6.1rem] sm:rounded-[1.35rem] sm:px-3 sm:py-3.5",
-                  tone.panelClassName,
-                )}
-              >
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <h3
+            className={cn(
+              "shrink-0 [font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
+              HEADING_TEXT,
+              HEADING_MB,
+              "text-[1.08rem] narrow:text-base sm:text-xl pb-2",
+            )}
+          >
+            Статистика
+          </h3>
+
+          {/* Grid fills remaining card space; cells stretch evenly */}
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 auto-rows-fr grid-cols-2",
+              GRID_GAP,
+            )}
+          >
+            {statsCards.map((item) => {
+              const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
+              return (
                 <div
+                  key={item.key}
                   className={cn(
-                    "line-clamp-1 font-medium uppercase tracking-[0.15em]",
-                    STAT_LABEL,
-                    tone.labelClassName,
+                    "relative flex h-full min-h-[3rem] flex-col justify-between overflow-hidden rounded-[1.45rem] border px-4 py-4 text-start shadow-[var(--shadow-soft)] sm:min-h-[9rem] sm:rounded-[1.55rem]",
+                    tone.panelClassName,
                   )}
                 >
-                  {item.label}
+                  <div
+                    className={cn(
+                      "relative line-clamp-2 max-w-[8rem] font-medium uppercase tracking-[0.16em]",
+                      STAT_LABEL,
+                      tone.labelClassName,
+                    )}
+                  >
+                    {item.label}
+                  </div>
+
+                  <div
+                    className={cn(
+                      "relative mt-4 font-semibold leading-[0.95] tracking-tight",
+                      STAT_VALUE,
+                      tone.valueClassName,
+                    )}
+                  >
+                    {item.isLoading ? (
+                      <Skeleton className="h-10 w-16 rounded-xl border-0 sm:w-20" />
+                    ) : item.value != null ? (
+                      item.value
+                    ) : (
+                      <span className="text-[15px] font-medium text-text-muted">
+                        Нет данных
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    "mt-1 font-semibold leading-tight tracking-tight",
-                    STAT_VALUE,
-                    tone.valueClassName,
-                  )}
-                >
-                  {item.isLoading ? (
-                    <Skeleton className="mx-auto h-9 w-14 rounded-xl border-0 sm:w-16" />
-                  ) : item.value != null ? (
-                    item.value
-                  ) : (
-                    <span className="text-[15px] font-medium text-text-muted">
-                      Нет данных
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </DashboardSurface>
     );
   },
 );
+
+/* ── Streak Card ─────────────────────────────────────────────────── */
+
+type DashboardStreakCardProps = {
+  dailyStreak?: number | null;
+};
+
+export const DashboardStreakCard = React.memo(function DashboardStreakCard({
+  dailyStreak,
+}: DashboardStreakCardProps) {
+  const streakDays = Math.max(0, Math.round(dailyStreak ?? 0));
+  const streakCopy =
+    streakDays > 0
+      ? "Хороший ритм. Ещё один день закрепит привычку."
+      : "Начните сегодня и соберите свою первую серию.";
+
+  return (
+    <DashboardSurface className="relative flex min-h-[9rem] flex-col justify-between overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.96),rgba(var(--accent-bronze-rgb),0.08))] sm:min-h-[10.75rem] sm:rounded-[2rem]">
+      <div className="pointer-events-none absolute -bottom-18 left-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-bronze-rgb),0.16)_0%,transparent_74%)]" />
+
+      <div className="relative text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+        Серия подряд
+      </div>
+
+      <div className="relative">
+        <div className="text-[clamp(1.85rem,6vw,2.7rem)] font-semibold leading-none tracking-tight text-brand-primary">
+          {streakDays} {pluralizeDays(streakDays)}
+        </div>
+        <p className="mt-2.5 max-w-[22rem] text-sm leading-relaxed text-text-secondary sm:text-[15px]">
+          {streakCopy}
+        </p>
+      </div>
+    </DashboardSurface>
+  );
+});
+DashboardStreakCard.displayName = "DashboardStreakCard";
 
 /* ── Leaderboard Row ──────────────────────────────────────────────── */
 
@@ -965,52 +1026,27 @@ export const DashboardLeaderboardCard = React.memo(
       onOpenPlayerProfile,
     };
 
-    const currentUserEntryIndex = React.useMemo(() => {
-      if (!currentUserTelegramId) return -1;
-      return cachedEntries.findIndex(
-        (e): e is domain_UserLeaderboardEntry =>
-          e != null && String(e.telegramId ?? "") === currentUserTelegramId,
-      );
-    }, [cachedEntries, currentUserTelegramId]);
-
-    const currentUserCardEntry = React.useMemo(() => {
-      if (currentUserEntryIndex < 0) return null;
-      return cachedEntries[currentUserEntryIndex] ?? null;
-    }, [cachedEntries, currentUserEntryIndex]);
-
-    const compactEntries = React.useMemo(
-      () =>
-        selectCompactLeaderboardEntries(
-          leaderboard?.items ?? [],
-          currentUserTelegramId,
-        ),
-      [currentUserTelegramId, leaderboard?.items],
-    );
-
-    // Prefetch current user's window for the compact dashboard card.
-    React.useEffect(() => {
-      if (
-        !currentUserSnapshot?.rank ||
-        currentUserEntryIndex >= 0 ||
-        totalParticipants <= 0
-      )
-        return;
-      void requestLeaderboardWindow(
-        getLeaderboardWindowOffsetForIndex(
-          Math.max(0, currentUserSnapshot.rank - 1),
-          totalParticipants,
-          windowSize,
-        ),
-      );
-    }, [
-      currentUserEntryIndex,
-      currentUserSnapshot?.rank,
-      requestLeaderboardWindow,
-      totalParticipants,
-      windowSize,
-    ]);
-
     const canShowMe = Boolean(currentUserSnapshot?.rank);
+    const currentUserRank =
+      typeof currentUserSnapshot?.rank === "number" &&
+      Number.isFinite(currentUserSnapshot.rank) &&
+      currentUserSnapshot.rank > 0
+        ? Math.max(1, Math.round(currentUserSnapshot.rank))
+        : null;
+    const previewParticipantsTotal = currentUserRank
+      ? Math.max(totalParticipants, currentUserRank)
+      : Math.max(0, totalParticipants);
+    const previewTopPercent =
+      currentUserRank && previewParticipantsTotal > 0
+        ? Math.max(
+            1,
+            Math.ceil((currentUserRank / previewParticipantsTotal) * 100),
+          )
+        : null;
+    const previewRankMarker = currentUserRank
+      ? getRankMarker(currentUserRank)
+      : null;
+    const PreviewRankIcon = previewRankMarker?.icon ?? null;
 
     const renderLeaderboardRow = React.useCallback(
       (index: number) => {
@@ -1044,7 +1080,7 @@ export const DashboardLeaderboardCard = React.memo(
 
     return (
       <>
-        <DashboardSurface className="self-start flex min-h-[13.5rem] w-full flex-col gap-3.5 p-4 sm:min-h-[14rem] sm:p-5">
+        <DashboardSurface className="self-start flex min-h-[10rem] w-full flex-col gap-3 p-4 sm:min-h-[10.5rem] sm:p-5">
           <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
@@ -1072,51 +1108,77 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className={cn("flex flex-1 flex-col justify-center", ROW_GAP)}>
-            {isLeaderboardLoading && compactEntries.length === 0 ? (
-              Array.from({ length: 3 }, (_, index) => (
-                <DashboardLeaderboardRowSkeleton
-                  key={`leaderboard-preview-skeleton-${index}`}
-                  isLast={index === 2}
-                />
-              ))
-            ) : compactEntries.length > 0 ? (
-              compactEntries.map((entry) => (
-                <div
-                  key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                  className={cn("px-0")}
-                >
-                  <DashboardLeaderboardRow
-                    entry={entry}
-                    compact
-                    className="w-full"
-                    {...sharedRowProps}
-                  />
+          <div className="flex flex-1 items-end border-t border-border-subtle/80 pt-3.5 sm:pt-4">
+            {isLeaderboardLoading && currentUserRank == null ? (
+              <div className="flex w-full items-end justify-between gap-3">
+                <div className="min-w-0 space-y-2.5">
+                  <Skeleton className="h-3 w-24 rounded-full border-0" />
+                  <Skeleton className="h-11 w-24 rounded-[1rem] border-0" />
+                  <Skeleton className="h-4 w-28 rounded-full border-0" />
                 </div>
-              ))
-            ) : currentUserCardEntry ? (
-              <DashboardLeaderboardRow
-                entry={currentUserCardEntry}
-                compact
-                className="w-full"
-                {...sharedRowProps}
-              />
-            ) : currentUserSnapshot?.rank ? (
-              <DashboardInfoTile
-                label="Ваше место"
-                value={`#${currentUserSnapshot.rank} из ${Math.max(totalParticipants, currentUserSnapshot.rank)}`}
-                className="w-full border-brand-primary/15 bg-status-mastered-soft/45"
-              />
+                <Skeleton className="h-8 w-20 rounded-full border-0" />
+              </div>
+            ) : currentUserRank ? (
+              <div className="flex w-full items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {PreviewRankIcon ? (
+                      <div
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                          previewRankMarker?.className,
+                        )}
+                        aria-hidden="true"
+                      >
+                        <PreviewRankIcon className="h-3.5 w-3.5" />
+                      </div>
+                    ) : null}
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+                      Ваше место
+                    </span>
+                  </div>
+
+                  <div className="mt-2">
+                    <div className="[font-family:var(--font-heading)] text-[clamp(2.15rem,9vw,3rem)] font-semibold leading-none tracking-tight text-text-primary">
+                      #{currentUserRank}
+                    </div>
+                    <div className="mt-1.5 text-sm text-text-muted">
+                      из {previewParticipantsTotal} участников
+                    </div>
+                  </div>
+                </div>
+
+                {previewTopPercent ? (
+                  <div className="shrink-0 rounded-full border border-brand-primary/15 bg-status-mastered-soft px-3 py-1.5 text-xs font-semibold text-brand-primary">
+                    Топ {previewTopPercent}%
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <DashboardInfoTile
-                label="Рейтинг"
-                value={
-                  totalParticipants > 0
-                    ? `${totalParticipants} участников`
-                    : "Пока без участников"
-                }
-                className="flex flex-col justify-center flex-1"
-              />
+              <div className="flex w-full flex-col justify-center">
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+                  Ваше место
+                </div>
+                <div className="mt-2 text-lg font-semibold leading-tight text-text-primary">
+                  Пока вне таблицы
+                </div>
+                <div className="mt-1.5 text-sm leading-relaxed text-text-muted">
+                  {previewParticipantsTotal > 0
+                    ? `Сейчас в рейтинге ${previewParticipantsTotal} участников.`
+                    : "Рейтинг появится после первых результатов."}
+                </div>
+                {onOpenTraining ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenTraining}
+                    className="mt-3 h-9 w-fit rounded-full px-4 text-xs"
+                  >
+                    Открыть тренировку
+                  </Button>
+                ) : null}
+              </div>
             )}
           </div>
         </DashboardSurface>

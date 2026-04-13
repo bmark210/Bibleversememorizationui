@@ -4,24 +4,6 @@
  */
 
 export interface paths {
-    "/api/feedback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List feedback */
-        get: operations["listFeedback"];
-        put?: never;
-        /** Create feedback */
-        post: operations["createFeedback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/generate-exercise": {
         parameters: {
             query?: never;
@@ -304,6 +286,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{telegramId}/verses/flashcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get verses for flashcard training
+         * @description Returns a random pool of all LEARNING verses for flashcard mode.
+         */
+        get: operations["getFlashcard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{telegramId}/verses/flashcard/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save flashcard session results
+         * @description Processes flashcard results and awards XP for remembered cards.
+         */
+        post: operations["saveFlashcardSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{telegramId}/verses/queue": {
         parameters: {
             query?: never;
@@ -415,7 +437,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete verse progress */
+        /** Archive verse progress */
         delete: operations["deleteUserVerse"];
         options?: never;
         head?: never;
@@ -434,12 +456,12 @@ export interface paths {
         put?: never;
         /**
          * Add verse to queue
-         * @description Moves a verse from MY or STOPPED status into the learning queue.
+         * @description Moves a verse from STOPPED status into the learning queue.
          */
         post: operations["addVerseToQueue"];
         /**
          * Remove verse from queue
-         * @description Moves a verse from QUEUE back to MY status.
+         * @description Moves a verse from QUEUE back to STOPPED status.
          */
         delete: operations["removeVerseFromQueue"];
         options?: never;
@@ -485,6 +507,26 @@ export interface paths {
         get: operations["listCatalogVerses"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/verses/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lookup catalog verses by external IDs
+         * @description Batch enrichment endpoint for catalog cards. Returns only verses that exist in the catalog DB, preserving the requested order.
+         */
+        post: operations["lookupCatalogVerses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -585,13 +627,12 @@ export interface components {
             deletedExternalVerseId?: string;
             ok?: boolean;
         };
+        "bible-memory-db_internal_domain.CatalogVerseLookupResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
+        };
         "bible-memory-db_internal_domain.CatalogVersesPageResponse": {
             items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
             totalCount?: number;
-        };
-        "bible-memory-db_internal_domain.CreateFeedbackInput": {
-            telegramId: string;
-            text: string;
         };
         "bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry": {
             avatarUrl?: string;
@@ -635,18 +676,17 @@ export interface components {
             xp?: number;
             xpDelta?: number;
         };
-        "bible-memory-db_internal_domain.Feedback": {
-            createdAt?: string;
-            id?: string;
-            telegramId?: string;
-            text?: string;
-            updatedAt?: string;
+        "bible-memory-db_internal_domain.FlashcardSessionInput": {
+            /** @description Results are the individual card results from this session. */
+            results?: components["schemas"]["bible-memory-db_internal_domain.FlashcardSessionResult"][];
         };
-        "bible-memory-db_internal_domain.FeedbackPageResponse": {
-            items?: components["schemas"]["bible-memory-db_internal_domain.Feedback"][];
-            limit?: number;
-            offset?: number;
-            total?: number;
+        "bible-memory-db_internal_domain.FlashcardSessionResult": {
+            /** @description ExternalVerseID identifies the verse being trained. */
+            externalVerseId?: string;
+            /** @description Mode is the flashcard mode used: "reference" (show text→recall ref) or "verse" (show ref→recall text). */
+            mode?: string;
+            /** @description Remembered indicates whether the user recalled the answer. */
+            remembered?: boolean;
         };
         "bible-memory-db_internal_domain.FriendPlayerListItem": {
             avatarUrl?: string;
@@ -722,8 +762,8 @@ export interface components {
         };
         "bible-memory-db_internal_domain.TrainingStepHTTPResponse": {
             graduatedToReview?: boolean;
-            nextTrainingModeId?: number;
             newTotalXp?: number;
+            nextTrainingModeId?: number;
             /** @description PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot. */
             promotedVerseIds?: string[];
             reviewWasSuccessful?: boolean;
@@ -877,6 +917,7 @@ export interface components {
             difficultyLevel?: components["schemas"]["bible-memory-db_internal_domain.VerseDifficultyLevel"];
             externalVerseId?: string;
             flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
+            isPopular?: boolean;
             lastReviewedAt?: string;
             lastTrainingModeId?: number;
             masteryLevel?: number;
@@ -906,7 +947,7 @@ export interface components {
         /** @enum {string} */
         "bible-memory-db_internal_domain.VersePopularityScope": "friends" | "players" | "self";
         /** @enum {string} */
-        "bible-memory-db_internal_domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "DELETED";
+        "bible-memory-db_internal_domain.VerseStatus": "QUEUE" | "LEARNING" | "STOPPED" | "DELETED";
         "bible-memory-db_internal_domain.VerseTagLinkResponse": {
             externalVerseId?: string;
             id?: string;
@@ -937,8 +978,25 @@ export interface components {
         "internal_api.ErrorResponse": {
             error?: string;
         };
+        "internal_api.FlashcardResponse": {
+            /** @description TotalCount is the number of verses returned. */
+            totalCount?: number;
+            /** @description Verses is the pool of user verses for flashcard training. */
+            verses?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"][];
+        };
+        "internal_api.FlashcardSessionResponse": {
+            /** @description NewTotalXP is the user's total XP after this session. */
+            newTotalXp?: number;
+            /** @description XPAwarded is the amount of XP earned in this session. */
+            xpAwarded?: number;
+        };
         "internal_api.HealthResponse": {
             status?: string;
+        };
+        "internal_api.LookupCatalogVersesRequest": {
+            externalVerseIds?: string[];
+            telegramId?: string;
+            translation?: string;
         };
         "internal_api.PatchUserVerseRequest": {
             lastReviewedAt?: string;
@@ -1016,94 +1074,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listFeedback: {
-        parameters: {
-            query?: {
-                /** @description Optional Telegram ID filter */
-                telegramId?: string;
-                /** @description Max items */
-                limit?: number;
-                /** @description Pagination offset */
-                startWith?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["bible-memory-db_internal_domain.FeedbackPageResponse"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
-                };
-            };
-        };
-    };
-    createFeedback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Feedback payload */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["bible-memory-db_internal_domain.CreateFeedbackInput"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Feedback"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
-                };
-            };
-            /** @description Too Many Requests */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
-                };
-            };
-        };
-    };
     generateExercise: {
         parameters: {
             query?: never;
@@ -1651,8 +1621,6 @@ export interface operations {
             query?: {
                 /** @description Max items */
                 limit?: number;
-                /** @description Pagination offset */
-                offset?: number;
             };
             header?: never;
             path: {
@@ -2003,7 +1971,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Verse status */
-                status?: "MY" | "LEARNING" | "STOPPED";
+                status?: "QUEUE" | "LEARNING" | "STOPPED";
                 /** @description Sort field */
                 orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
                 /** @description Sort direction */
@@ -2012,6 +1980,8 @@ export interface operations {
                 filter?: "catalog" | "my" | "learning" | "review" | "mastered" | "stopped";
                 /** @description Bible book number filter */
                 bookId?: number;
+                /** @description Only verses with tags (catalog filter) */
+                popularOnly?: boolean;
                 /** @description Search in verse text or reference */
                 search?: string;
                 /** @description Comma-separated tag slugs */
@@ -2095,6 +2065,98 @@ export interface operations {
                 };
             };
             /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    getFlashcard: {
+        parameters: {
+            query?: {
+                /** @description Max items to return */
+                limit?: number;
+                /** @description Bible translation */
+                translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
+            };
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verse pool */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.FlashcardResponse"];
+                };
+            };
+            /** @description Invalid telegramId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    saveFlashcardSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Session results */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.FlashcardSessionInput"];
+            };
+        };
+        responses: {
+            /** @description XP awarded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.FlashcardSessionResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Server error */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -2687,6 +2749,8 @@ export interface operations {
                 translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
                 /** @description Bible book number filter */
                 bookId?: number;
+                /** @description Only verses with tags */
+                popularOnly?: boolean;
                 /** @description Comma-separated tag slugs */
                 tagSlugs?: string;
                 /** @description Search in verse text or reference */
@@ -2713,6 +2777,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["bible-memory-db_internal_domain.CatalogVersesPageResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    lookupCatalogVerses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lookup payload */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["internal_api.LookupCatalogVersesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.CatalogVerseLookupResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

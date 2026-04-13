@@ -1,628 +1,246 @@
 "use client";
 
 import React from "react";
-import { Loader2, MessageSquareMore, Send } from "lucide-react";
-import { ApiError } from "@/api/core/ApiError";
-import type { bible_memory_db_internal_domain_Feedback } from "@/api/models/bible_memory_db_internal_domain_Feedback";
-import { FeedbackService } from "@/api/services/FeedbackService";
+import Image from "next/image";
+import { ImagePlus, Send, X } from "lucide-react";
+import { useTelegram } from "../contexts/TelegramContext";
+import {
+  FEEDBACK_ATTACHMENT_FIELD,
+  FEEDBACK_EMAIL,
+  FEEDBACK_MAX_ATTACHMENT_BYTES,
+  MAX_FEEDBACK_LENGTH,
+} from "@/app/lib/feedbackConfig";
 import { toast } from "@/app/lib/toast";
-import { isAdminTelegramId } from "@/lib/admins";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { cn } from "./ui/utils";
 
-type FeedbackAdminRow = bible_memory_db_internal_domain_Feedback & {
-  user: {
-    name: string | null;
-    nickname: string | null;
-    avatarUrl: string | null;
-  };
-};
+type FeedbackProps = { telegramId?: string | null };
 
-const MAX_FEEDBACK_LENGTH = 500;
-const ADMIN_FEEDBACK_PAGE_SIZE = 3;
-const FEEDBACK_COOLDOWN_MS = 60 * 60 * 1000;
-const FEEDBACK_LAST_SUBMIT_KEY_PREFIX = "feedback:lastSubmitAt:";
-
-const PANEL =
-  "rounded-[1.2rem] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]";
-const INTERNAL_SCROLL_AREA =
-  "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]";
-
-type FeedbackProps = {
-  telegramId?: string | null;
-  variant?: "default" | "profile";
-};
-
-function feedbackLastSubmitStorageKey(telegramId: string): string {
-  return `${FEEDBACK_LAST_SUBMIT_KEY_PREFIX}${telegramId}`;
-}
-
-function readLastSubmitAt(telegramId: string): number | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(
-      feedbackLastSubmitStorageKey(telegramId),
-    );
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  } catch {
-    return null;
+function formatAttachmentSize(bytes: number) {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
   }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function writeLastSubmitAt(telegramId: string, at: number): void {
-  try {
-    window.localStorage.setItem(
-      feedbackLastSubmitStorageKey(telegramId),
-      String(at),
-    );
-  } catch {
-    /* quota / private mode */
-  }
-}
-
-function computeCooldownRemainingMs(telegramId: string): number {
-  const last = readLastSubmitAt(telegramId);
-  if (last == null) return 0;
-  return Math.max(0, last + FEEDBACK_COOLDOWN_MS - Date.now());
-}
-
-function formatCooldownRemaining(ms: number): string {
-  const totalSec = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) {
-    return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
-  }
-  if (m > 0) {
-    return `${m} мин`;
-  }
-  return `${s} с`;
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-function getFeedbackAuthorName(item: FeedbackAdminRow): string {
-  const name = item.user.name?.trim();
-  if (name) return name;
-
-  const nickname = item.user.nickname?.trim();
-  if (nickname) return `@${nickname}`;
-
-  const tid = String(item.telegramId ?? "");
-  return `Пользователь #${tid.slice(-4)}`;
-}
-
-function mapApiFeedbackToEntry(
-  item: bible_memory_db_internal_domain_Feedback,
-): FeedbackAdminRow {
-  return {
-    id: String(item.id ?? ""),
-    telegramId: String(item.telegramId ?? ""),
-    text: String(item.text ?? ""),
-    createdAt: item.createdAt,
-    user: { name: null, nickname: null, avatarUrl: null },
-  };
-}
-
-function formatFeedbackDate(value: string): string {
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return "Без даты";
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(parsed));
-}
-
-export function Feedback({
-  telegramId = null,
-  variant = "default",
-}: FeedbackProps) {
+export function Feedback({ telegramId = null }: FeedbackProps) {
+  const { user } = useTelegram();
   const [text, setText] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [adminPageIndex, setAdminPageIndex] = React.useState(1);
-  const [adminItems, setAdminItems] = React.useState<FeedbackAdminRow[]>([]);
-  const [adminTotalCount, setAdminTotalCount] = React.useState(0);
-  const [isAdminListLoading, setIsAdminListLoading] = React.useState(false);
-  const [adminListError, setAdminListError] = React.useState<string | null>(
-    null,
-  );
-  const [refreshVersion, setRefreshVersion] = React.useState(0);
-  const [cooldownRemainingMs, setCooldownRemainingMs] = React.useState(0);
+  const [attachment, setAttachment] = React.useState<File | null>(null);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] =
+    React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const normalizedTelegramId = telegramId?.trim() ?? "";
-  const isAdmin = isAdminTelegramId(normalizedTelegramId);
-  const trimmedText = text.trim();
-  const remainingChars = MAX_FEEDBACK_LENGTH - text.length;
-  const totalPages = Math.max(
-    1,
-    Math.ceil(adminTotalCount / ADMIN_FEEDBACK_PAGE_SIZE),
-  );
-  const isFeedbackCooldownActive = cooldownRemainingMs > 0;
+  const trimmed = text.trim();
+  const remaining = MAX_FEEDBACK_LENGTH - text.length;
   const canSubmit =
-    normalizedTelegramId.length > 0 &&
-    trimmedText.length > 0 &&
-    text.length <= MAX_FEEDBACK_LENGTH &&
     !isSubmitting &&
-    !isFeedbackCooldownActive;
-  const isProfileVariant = variant === "profile";
+    trimmed.length > 0 &&
+    text.length <= MAX_FEEDBACK_LENGTH;
 
   React.useEffect(() => {
-    if (!normalizedTelegramId) {
-      setCooldownRemainingMs(0);
-      return;
-    }
-    const tick = () =>
-      setCooldownRemainingMs(
-        computeCooldownRemainingMs(normalizedTelegramId),
-      );
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [normalizedTelegramId]);
-
-  React.useEffect(() => {
-    if (!isAdmin || !normalizedTelegramId) {
-      setAdminItems([]);
-      setAdminTotalCount(0);
-      setAdminListError(null);
-      setIsAdminListLoading(false);
+    if (!attachment) {
+      setAttachmentPreviewUrl(null);
       return;
     }
 
-    const startWith = Math.max(
-      0,
-      (adminPageIndex - 1) * ADMIN_FEEDBACK_PAGE_SIZE,
-    );
-    const request = FeedbackService.listFeedback(
-      undefined,
-      ADMIN_FEEDBACK_PAGE_SIZE,
-      startWith,
-    );
-
-    setIsAdminListLoading(true);
-    setAdminListError(null);
-
-    request
-      .then((page) => {
-        const items = (page.items ?? []).map(mapApiFeedbackToEntry);
-        setAdminItems(items);
-        const total = page.total ?? items.length;
-        setAdminTotalCount(total);
-
-        const nextTotalPages = Math.max(
-          1,
-          Math.ceil(total / ADMIN_FEEDBACK_PAGE_SIZE),
-        );
-        if (adminPageIndex > nextTotalPages) {
-          setAdminPageIndex(nextTotalPages);
-        }
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Не удалось загрузить отзывы";
-        setAdminListError(message);
-      })
-      .finally(() => {
-        setIsAdminListLoading(false);
-      });
+    const objectUrl = URL.createObjectURL(attachment);
+    setAttachmentPreviewUrl(objectUrl);
 
     return () => {
-      request.cancel();
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [adminPageIndex, isAdmin, normalizedTelegramId, refreshVersion]);
+  }, [attachment]);
 
-  const applyTemplate = (template: string) => {
-    setText((current) => {
-      const currentTrimmed = current.trim();
-      if (!currentTrimmed) {
-        return template;
+  const clearAttachment = React.useCallback(() => {
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, []);
+
+  const handleAttachmentChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const nextAttachment = event.target.files?.[0] ?? null;
+
+      if (!nextAttachment) {
+        return;
       }
-      if (currentTrimmed.includes(template)) {
-        return current;
+
+      if (!nextAttachment.type.startsWith("image/")) {
+        toast.warning("Можно прикрепить только фотографию", {
+          label: "Обратная связь",
+        });
+        event.target.value = "";
+        return;
       }
-      return `${currentTrimmed}\n\n${template}`;
-    });
-  };
 
-  const handleSubmit = async () => {
-    if (!normalizedTelegramId) {
-      toast.warning("Не найден telegramId", {
-        label: "Обратная связь",
-      });
-      return;
-    }
+      if (nextAttachment.size > FEEDBACK_MAX_ATTACHMENT_BYTES) {
+        toast.warning("Фотография слишком большая", {
+          label: "Обратная связь",
+          description: "Максимум 10 MB",
+        });
+        event.target.value = "";
+        return;
+      }
 
-    if (!trimmedText) {
-      toast.warning("Введите текст отзыва", {
-        label: "Обратная связь",
-      });
-      return;
-    }
+      setAttachment(nextAttachment);
+    },
+    [],
+  );
 
-    if (text.length > MAX_FEEDBACK_LENGTH) {
-      toast.warning(`Максимум ${MAX_FEEDBACK_LENGTH} символов`, {
-        label: "Обратная связь",
-      });
-      return;
-    }
-
-    const remaining = computeCooldownRemainingMs(normalizedTelegramId);
-    if (remaining > 0) {
-      toast.info(
-        `Следующий отзыв можно отправить через ${formatCooldownRemaining(remaining)}.`,
-        { label: "Обратная связь" },
-      );
+  const handleSubmit = React.useCallback(async () => {
+    if (!trimmed) {
+      toast.warning("Введите сообщение", { label: "Обратная связь" });
       return;
     }
 
     setIsSubmitting(true);
+
     try {
-      await FeedbackService.createFeedback({
-        telegramId: normalizedTelegramId,
-        text: trimmedText,
+      const formData = new FormData();
+      formData.set("message", trimmed);
+      if (telegramId) {
+        formData.set("telegramId", telegramId);
+      }
+      if (user?.firstName) {
+        formData.set("firstName", user.firstName);
+      }
+      if (user?.lastName) {
+        formData.set("lastName", user.lastName);
+      }
+      if (user?.username) {
+        formData.set("username", user.username);
+      }
+      if (attachment) {
+        formData.set(FEEDBACK_ATTACHMENT_FIELD, attachment, attachment.name);
+      }
+
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        body: formData,
       });
 
-      const sentAt = Date.now();
-      writeLastSubmitAt(normalizedTelegramId, sentAt);
-      setCooldownRemainingMs(
-        Math.max(0, sentAt + FEEDBACK_COOLDOWN_MS - Date.now()),
-      );
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; recipient?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.message ??
+            "Не удалось отправить сообщение. Попробуйте ещё раз.",
+        );
+      }
 
       setText("");
-      toast.success("Отзыв отправлен", {
+      clearAttachment();
+      toast.success("Сообщение отправлено", {
         label: "Обратная связь",
+        description: payload?.recipient ?? FEEDBACK_EMAIL,
       });
-
-      if (isAdmin) {
-        if (adminPageIndex !== 1) {
-          setAdminPageIndex(1);
-        } else {
-          setRefreshVersion((prev) => prev + 1);
-        }
-      }
     } catch (error) {
-      if (error instanceof ApiError && error.status === 429) {
-        const bodyError =
-          error.body &&
-          typeof error.body === "object" &&
-          "error" in error.body &&
-          typeof (error.body as { error?: unknown }).error === "string"
-            ? (error.body as { error: string }).error
-            : null;
-        writeLastSubmitAt(normalizedTelegramId, Date.now());
-        setCooldownRemainingMs(
-          computeCooldownRemainingMs(normalizedTelegramId),
-        );
-        toast.warning(
-          bodyError ?? error.message ?? "Слишком частые отправки отзывов",
-          { label: "Обратная связь" },
-        );
-      } else {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Не удалось отправить отзыв";
-        toast.error(message, {
-          label: "Обратная связь",
-        });
-      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось отправить сообщение. Попробуйте ещё раз.";
+      console.error("Не удалось отправить сообщение", error);
+      toast.error(message, {
+        label: "Обратная связь",
+        description: FEEDBACK_EMAIL,
+      });
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [attachment, clearAttachment, telegramId, trimmed, user]);
 
   return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-col gap-3",
-        isProfileVariant
-          ? "h-full"
-          : "h-full short-phone:h-auto",
-      )}
-    >
-      {!isProfileVariant ? (
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-text-primary">
-              Обратная связь
+    <div className="flex flex-1 flex-col gap-2.5 overflow-hidden">
+      {/* textarea stretches to fill all available height in the card */}
+      <Textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Баг, неудобство или идея — любые мысли приветствуются…"
+        maxLength={MAX_FEEDBACK_LENGTH}
+        disabled={isSubmitting}
+        className="flex-1 h-full min-h-0 rounded-[1.25rem] border-border-subtle bg-bg-surface shadow-none resize-none"
+      />
+
+      <div className="flex shrink-0 flex-col gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={isSubmitting}
+          onChange={handleAttachmentChange}
+        />
+
+        {attachment && attachmentPreviewUrl ? (
+          <div className="flex items-center gap-3 rounded-[1.2rem] border border-border-subtle bg-bg-elevated/70 p-2.5 shadow-[var(--shadow-soft)]">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[0.95rem] border border-border-subtle bg-bg-subtle">
+              <Image
+                src={attachmentPreviewUrl}
+                alt="Прикреплённая фотография"
+                fill
+                unoptimized
+                className="object-cover"
+              />
             </div>
-            <div className="text-xs text-text-muted">1 сообщение в час</div>
-          </div>
 
-          <div className="inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-[11px] text-text-secondary">
-            {isAdmin ? "Админ" : `${MAX_FEEDBACK_LENGTH} симв.`}
-          </div>
-        </div>
-      ) : null}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-text-primary">
+                {attachment.name}
+              </div>
+              <div className="mt-0.5 text-xs text-text-muted">
+                {formatAttachmentSize(attachment.size)} · 1 фото
+              </div>
+            </div>
 
-      {!normalizedTelegramId ? (
-        <div
-          className={cn(
-            PANEL,
-            "flex flex-1 items-center justify-center px-4 py-6 text-sm text-text-secondary",
-          )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isSubmitting}
+              onClick={clearAttachment}
+              className="h-9 w-9 rounded-full"
+              aria-label="Удалить фотографию"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={() => fileInputRef.current?.click()}
+            className="h-10 w-fit rounded-full px-4"
+          >
+            <ImagePlus className="h-4 w-4" />
+            Добавить фото
+          </Button>
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <span className={cn("text-xs", remaining < 120 ? "text-state-warning" : "text-text-muted")}>
+          {remaining} симв.
+        </span>
+
+        <Button
+          type="button"
+          onClick={() => void handleSubmit()}
+          disabled={!canSubmit}
+          className="h-10 rounded-full px-4 gap-1.5"
         >
-          Раздел станет доступен после инициализации профиля в Telegram.
-        </div>
-      ) : (
-        <>
-          <div className={cn(PANEL, "shrink-0 p-3")}>
-            {isFeedbackCooldownActive ? (
-              <div className="mb-3 rounded-full border border-border-subtle bg-bg-surface px-3 py-2 text-xs text-text-secondary">
-                Следующая отправка через{" "}
-                <span className="font-medium text-text-primary">
-                  {formatCooldownRemaining(cooldownRemainingMs)}
-                </span>
-              </div>
-            ) : null}
-
-            <Textarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Что стоит улучшить?"
-              maxLength={MAX_FEEDBACK_LENGTH}
-              disabled={isFeedbackCooldownActive}
-              className="min-h-[104px] rounded-[1.2rem] border-border-subtle bg-bg-surface shadow-none disabled:opacity-60"
-            />
-
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div
-                className={cn(
-                  "text-xs",
-                  remainingChars < 120
-                    ? "text-state-warning"
-                    : "text-text-muted",
-                )}
-              >
-                {remainingChars} симв.
-              </div>
-
-              <Button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={!canSubmit}
-                className="h-10 rounded-full px-4"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Отправляем
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Отправить
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {isAdmin ? (
-            <div className={cn(PANEL, "flex min-h-0 flex-1 flex-col p-3")}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquareMore className="h-4 w-4 text-text-muted" />
-                  <div className="text-sm font-medium text-text-primary">
-                    Отзывы
-                  </div>
-                </div>
-
-                <div className="text-xs text-text-muted">
-                  {adminTotalCount} всего
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  "mt-3",
-                  isProfileVariant ? INTERNAL_SCROLL_AREA : "grid gap-2",
-                )}
-              >
-                <div className="grid gap-2">
-                  {isAdminListLoading ? (
-                    Array.from({ length: ADMIN_FEEDBACK_PAGE_SIZE }).map(
-                      (_, index) => (
-                        <div
-                          key={`feedback-skeleton-${index}`}
-                          className="h-[86px] animate-pulse rounded-[1rem] border border-border-subtle bg-bg-surface"
-                        />
-                      ),
-                    )
-                  ) : adminListError ? (
-                    <div className="rounded-[1rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
-                      <div>{adminListError}</div>
-                      <div className="mt-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRefreshVersion((prev) => prev + 1)}
-                          className="rounded-full"
-                        >
-                          Повторить
-                        </Button>
-                      </div>
-                    </div>
-                  ) : adminItems.length === 0 ? (
-                    <div className="rounded-[1rem] border border-dashed border-border-subtle bg-bg-surface px-4 py-6 text-sm text-text-secondary">
-                      Отзывов пока нет.
-                    </div>
-                  ) : (
-                    adminItems.map((item) => {
-                      const authorName = getFeedbackAuthorName(item);
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="rounded-[1rem] border border-border-subtle bg-bg-surface px-3 py-2.5"
-                        >
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-9 w-9 border border-border-subtle bg-bg-elevated">
-                              {item.user.avatarUrl ? (
-                                <AvatarImage
-                                  src={item.user.avatarUrl}
-                                  alt={authorName}
-                                />
-                              ) : null}
-                              <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
-                                {getInitials(authorName || "U")}
-                              </AvatarFallback>
-                            </Avatar>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium text-text-primary">
-                                    {authorName}
-                                  </div>
-                                  <div className="text-[11px] text-text-muted">
-                                    ID {item.telegramId}
-                                  </div>
-                                </div>
-
-                                <div className="shrink-0 text-[11px] text-text-muted">
-                                  {formatFeedbackDate(item.createdAt)}
-                                </div>
-                              </div>
-
-                              <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-5 text-text-secondary">
-                                {item.text}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {adminTotalCount > ADMIN_FEEDBACK_PAGE_SIZE ? (
-                <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-3">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={adminPageIndex <= 1 || isAdminListLoading}
-                    onClick={() =>
-                      setAdminPageIndex((prev) => Math.max(1, prev - 1))
-                    }
-                    className="h-8 rounded-full px-3 text-xs"
-                  >
-                    Назад
-                  </Button>
-
-                  <div className="text-xs text-text-muted">
-                    {adminPageIndex}/{totalPages}
-                  </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={adminPageIndex >= totalPages || isAdminListLoading}
-                    onClick={() =>
-                      setAdminPageIndex((prev) =>
-                        Math.min(totalPages, prev + 1),
-                      )
-                    }
-                    className="h-8 rounded-full px-3 text-xs"
-                  >
-                    Вперёд
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          ) : isProfileVariant ? (
-            <div className="flex flex-col gap-2 px-1 text-xs text-text-muted sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                Коротко: экран, действие, результат и ожидание.
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  applyTemplate(
-                    "Экран:\nЧто делал:\nЧто увидел:\nЧто ожидал:",
-                  )
-                }
-                className="h-8 rounded-full px-3 text-xs sm:shrink-0"
-              >
-                Шаблон
-              </Button>
-            </div>
-          ) : (
-            <div className="grid flex-1 min-h-0 grid-cols-2 gap-2 short-phone:grid-cols-1">
-              <div className={cn(PANEL, "flex flex-col justify-between p-3")}>
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-text-muted">
-                    Что писать
-                  </div>
-                  <div className="mt-2 text-sm font-medium text-text-primary">
-                    Баг, идея или неудобство
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-text-muted">
-                    Хватает 1-2 предложений с названием экрана и тем, что
-                    произошло.
-                  </p>
-                </div>
-
-                <div className="text-xs text-text-muted">
-                  Чем точнее описание, тем быстрее правка.
-                </div>
-              </div>
-
-              <div className={cn(PANEL, "flex flex-col justify-between p-3")}>
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-text-muted">
-                    Статус
-                  </div>
-                  <div className="mt-2 text-sm font-medium text-text-primary">
-                    {isFeedbackCooldownActive
-                      ? "Отправка временно недоступна"
-                      : "Можно отправлять сейчас"}
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-text-muted">
-                    Лимит обновляется автоматически раз в секунду.
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    applyTemplate(
-                      "Экран:\nЧто делал:\nЧто увидел:\nЧто ожидал:",
-                    )
-                  }
-                  className="h-9 rounded-full px-3 text-xs"
-                >
-                  Вставить шаблон
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+          <Send className="h-3.5 w-3.5" />
+          {isSubmitting ? "Отправляем..." : "Отправить"}
+        </Button>
+      </div>
     </div>
   );
 }

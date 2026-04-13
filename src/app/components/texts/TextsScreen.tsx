@@ -36,7 +36,7 @@ import { cn } from "@/app/components/ui/utils";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { type Verse } from "@/app/domain/verse";
 import { VerseGallery } from "@/app/components/VerseGallery/VerseGallery";
-import { usePublicTextBoxes } from "@/app/hooks/texts/usePublicTextBoxes";
+import { useFriendTextBoxes } from "@/app/hooks/texts/useFriendTextBoxes";
 import { usePublicTextBoxVerses } from "@/app/hooks/texts/usePublicTextBoxVerses";
 import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useTextBoxVerses } from "@/app/hooks/texts/useTextBoxVerses";
@@ -66,6 +66,8 @@ import {
 } from "./TextCards";
 import { BibleCatalogView } from "./BibleCatalogView";
 import { LearningReplacementDrawer } from "./LearningReplacementDrawer";
+import { getTextBoxVisibilityLabel } from "./textBoxVisibilityMeta";
+import { VerseDeleteDrawer } from "@/app/components/VerseDeleteDrawer";
 import {
   getTextVerseStatusMutation,
   resolveTextVersePresentation,
@@ -83,9 +85,11 @@ type TextsScreenProps = {
 };
 
 type BoxEditorState =
-  | { mode: "create" }
+  | { mode: "create"; visibility: TextBoxVisibility }
   | { mode: "rename"; box: TextBoxSummary }
   | null;
+
+type BoxesViewMode = "mine" | "friends";
 
 type GalleryState = {
   initialIndex: number;
@@ -93,8 +97,6 @@ type GalleryState = {
   boxTitle: string;
 } | null;
 type LearningReplacementState = { pauseVerse: Verse } | null;
-type BoxesViewMode = "mine" | "public";
-
 function compareVersesCanonically(left: Verse, right: Verse) {
   return (
     compareExternalVerseIdsCanonically(
@@ -213,6 +215,7 @@ function TextBoxEditorDrawer({
   titleValue,
   isSubmitting,
   onTitleChange,
+  onVisibilityChange,
   onSubmit,
   onOpenChange,
 }: {
@@ -220,12 +223,15 @@ function TextBoxEditorDrawer({
   titleValue: string;
   isSubmitting: boolean;
   onTitleChange: (value: string) => void;
+  onVisibilityChange: (visibility: TextBoxVisibility) => void;
   onSubmit: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
   const isOpen = state !== null;
   const mode = state?.mode ?? "create";
-  const title = mode === "create" ? "Новая коробка" : "Переименовать коробку";
+  const isCreate = mode === "create";
+  const title = isCreate ? "Новая коробка" : "Переименовать коробку";
+  const currentVisibility = state?.mode === "create" ? state.visibility : "private";
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
@@ -234,7 +240,7 @@ function TextBoxEditorDrawer({
           <DrawerTitle>{title}</DrawerTitle>
         </DrawerHeader>
 
-        <div className="pb-2">
+        <div className="space-y-3 pb-2">
           <Input
             autoFocus
             value={titleValue}
@@ -243,6 +249,22 @@ function TextBoxEditorDrawer({
             className="h-11 rounded-[1.15rem] border-border-subtle bg-bg-surface"
             onChange={(event) => onTitleChange(event.target.value)}
           />
+
+          {isCreate ? (
+            <div className="rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 shadow-[var(--shadow-soft)]">
+              <div className="mb-3 text-sm font-medium text-text-primary">
+                Видимость
+              </div>
+              <CompactSegmentedControl<TextBoxVisibility>
+                value={currentVisibility}
+                items={[
+                  { value: "private", label: "Личная" },
+                  { value: "public", label: "Открытая" },
+                ]}
+                onChange={onVisibilityChange}
+              />
+            </div>
+          ) : null}
         </div>
 
         <DrawerFooter className="px-0">
@@ -253,7 +275,7 @@ function TextBoxEditorDrawer({
             onClick={onSubmit}
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "create" ? "Создать коробку" : "Сохранить"}
+            {isCreate ? "Создать коробку" : "Сохранить"}
           </Button>
           <Button
             type="button"
@@ -302,8 +324,8 @@ function BoxSettingsDrawer({
             <CompactSegmentedControl<TextBoxVisibility>
               value={box?.visibility ?? "private"}
               items={[
-                { value: "private", label: "Приватная" },
-                { value: "public", label: "Публичная" },
+                { value: "private", label: "Личная" },
+                { value: "public", label: "Открытая" },
               ]}
               onChange={(visibility) => {
                 if (!box || isUpdatingVisibility) return;
@@ -392,6 +414,9 @@ export function TextsScreen({
   const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
   const [isImportingPublicBox, setIsImportingPublicBox] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
+  const [removeVerseTarget, setRemoveVerseTarget] = useState<Verse | null>(
+    null,
+  );
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
     useState<LearningReplacementState>(null);
@@ -417,23 +442,23 @@ export function TextsScreen({
   } = useTextBoxes(telegramId);
 
   const {
-    items: publicBoxes,
-    total: publicBoxesTotal,
-    isLoading: isLoadingPublicBoxes,
-    isLoadingMore: isLoadingMorePublicBoxes,
-    error: publicBoxesError,
-    refresh: refreshPublicBoxes,
-    loadMore: loadMorePublicBoxes,
-    hasMore: hasMorePublicBoxes,
-  } = usePublicTextBoxes();
+    items: friendBoxes,
+    total: friendBoxesTotal,
+    isLoading: isLoadingFriendBoxes,
+    isLoadingMore: isLoadingMoreFriendBoxes,
+    error: friendBoxesError,
+    refresh: refreshFriendBoxes,
+    loadMore: loadMoreFriendBoxes,
+    hasMore: hasMoreFriendBoxes,
+  } = useFriendTextBoxes(telegramId);
 
   const selectedBox = useMemo(
     () => boxes.find((box) => box.id === selectedBoxId) ?? null,
     [boxes, selectedBoxId],
   );
   const selectedPublicBox = useMemo(
-    () => publicBoxes.find((box) => box.id === selectedPublicBoxId) ?? null,
-    [publicBoxes, selectedPublicBoxId],
+    () => friendBoxes.find((box) => box.id === selectedPublicBoxId) ?? null,
+    [friendBoxes, selectedPublicBoxId],
   );
 
   const {
@@ -524,8 +549,8 @@ export function TextsScreen({
 
   useEffect(() => {
     if (!selectedPublicBoxId) return;
-    void Promise.allSettled([refreshSelectedPublicBox(), refreshPublicBoxes()]);
-  }, [refreshPublicBoxes, refreshSelectedPublicBox, selectedPublicBoxId]);
+    void refreshSelectedPublicBox();
+  }, [refreshSelectedPublicBox, selectedPublicBoxId]);
 
   useEffect(() => {
     if (!selectedPublicBoxId) {
@@ -563,13 +588,13 @@ export function TextsScreen({
     if (verseListExternalSyncVersion <= 0) return;
     void Promise.allSettled([
       refreshBoxes(),
-      refreshPublicBoxes(),
+      refreshFriendBoxes(),
       selectedBoxId ? refreshSelectedBox() : Promise.resolve(null),
       selectedPublicBoxId ? refreshSelectedPublicBox() : Promise.resolve(null),
     ]);
   }, [
     refreshBoxes,
-    refreshPublicBoxes,
+    refreshFriendBoxes,
     refreshSelectedBox,
     refreshSelectedPublicBox,
     selectedBoxId,
@@ -591,7 +616,7 @@ export function TextsScreen({
 
   const openCreateDrawer = useCallback(() => {
     setEditorTitle("");
-    setEditorState({ mode: "create" });
+    setEditorState({ mode: "create", visibility: "private" });
   }, []);
 
   const handleWorkspaceTabChange = useCallback((tab: TextWorkspaceTab) => {
@@ -631,7 +656,7 @@ export function TextsScreen({
     setIsEditorSubmitting(true);
     try {
       if (editorState.mode === "create") {
-        const created = await createBox(nextTitle);
+        const created = await createBox(nextTitle, editorState.visibility);
         setActiveTab("boxes");
         setBoxesViewMode("mine");
         setSelectedBoxId(created.id);
@@ -641,7 +666,7 @@ export function TextsScreen({
         });
       } else {
         const updated = await renameBox(editorState.box.id, nextTitle);
-        await refreshPublicBoxes();
+        await refreshFriendBoxes();
         setSelectedBoxId((prev) => (prev === updated.id ? updated.id : prev));
         toast.success("Название обновлено", {
           description: updated.title,
@@ -662,7 +687,7 @@ export function TextsScreen({
     createBox,
     editorState,
     editorTitle,
-    refreshPublicBoxes,
+    refreshFriendBoxes,
     renameBox,
     telegramId,
   ]);
@@ -682,11 +707,9 @@ export function TextsScreen({
       try {
         const updated = await setBoxVisibility(settingsBox.id, visibility);
         setSettingsBox(updated);
-        await refreshPublicBoxes();
+        await refreshFriendBoxes();
         toast.success(
-          visibility === "public"
-            ? "Коробка стала публичной"
-            : "Коробка стала приватной",
+          `Видимость: ${getTextBoxVisibilityLabel(visibility)}`,
           {
             description: updated.title,
             label: "Тексты",
@@ -703,7 +726,7 @@ export function TextsScreen({
         setIsUpdatingBoxVisibility(false);
       }
     },
-    [refreshPublicBoxes, setBoxVisibility, settingsBox],
+    [refreshFriendBoxes, setBoxVisibility, settingsBox],
   );
 
   const handleDeleteBox = useCallback(async () => {
@@ -713,7 +736,7 @@ export function TextsScreen({
       const boxId = settingsBox.id;
       const title = settingsBox.title;
       await removeBox(boxId);
-      await refreshPublicBoxes();
+      await refreshFriendBoxes();
       if (selectedBoxId === boxId) {
         setSelectedBoxId(null);
       }
@@ -727,7 +750,7 @@ export function TextsScreen({
     } finally {
       setIsDeletingBox(false);
     }
-  }, [refreshPublicBoxes, removeBox, selectedBoxId, settingsBox]);
+  }, [refreshFriendBoxes, removeBox, selectedBoxId, settingsBox]);
 
   const handlePatchVerse = useCallback(
     async (verse: Verse) => {
@@ -741,11 +764,7 @@ export function TextsScreen({
           verse.externalVerseId,
           mutation.nextStatus,
         );
-        await Promise.allSettled([
-          refreshSelectedBox(),
-          refreshBoxes(),
-          refreshPublicBoxes(),
-        ]);
+        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
         onVerseMutationCommitted?.();
         toast.success("Статус обновлен", {
           description: `${verse.reference} · ${mutation.label}`,
@@ -763,7 +782,6 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
-      refreshPublicBoxes,
       refreshSelectedBox,
       selectedBoxId,
       telegramId,
@@ -780,11 +798,7 @@ export function TextsScreen({
           selectedBoxId,
           verse.externalVerseId,
         );
-        await Promise.allSettled([
-          refreshSelectedBox(),
-          refreshBoxes(),
-          refreshPublicBoxes(),
-        ]);
+        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
         onVerseMutationCommitted?.();
         toast.success("Стих удален из коробки", {
           description: verse.reference,
@@ -802,7 +816,6 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
-      refreshPublicBoxes,
       refreshSelectedBox,
       selectedBoxId,
       telegramId,
@@ -832,11 +845,7 @@ export function TextsScreen({
           activateExternalVerseId: activateVerse.externalVerseId,
           pauseExternalVerseId: pauseVerse.externalVerseId,
         });
-        await Promise.allSettled([
-          refreshSelectedBox(),
-          refreshBoxes(),
-          refreshPublicBoxes(),
-        ]);
+        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
         onVerseMutationCommitted?.();
         setReplacementState(null);
         toast.success("Стих заменен", {
@@ -858,7 +867,6 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
-      refreshPublicBoxes,
       refreshSelectedBox,
       replacementState,
       selectedBoxId,
@@ -950,18 +958,13 @@ export function TextsScreen({
         verse.externalVerseId,
         status as "LEARNING" | "STOPPED" | "QUEUE",
       );
-      await Promise.allSettled([
-        refreshSelectedBox(),
-        refreshBoxes(),
-        refreshPublicBoxes(),
-      ]);
+      await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
       onVerseMutationCommitted?.();
     },
     [
       galleryState,
       onVerseMutationCommitted,
       refreshBoxes,
-      refreshPublicBoxes,
       refreshSelectedBox,
       telegramId,
     ],
@@ -975,18 +978,13 @@ export function TextsScreen({
         galleryState.boxId,
         verse.externalVerseId,
       );
-      await Promise.allSettled([
-        refreshSelectedBox(),
-        refreshBoxes(),
-        refreshPublicBoxes(),
-      ]);
+      await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
       onVerseMutationCommitted?.();
     },
     [
       galleryState,
       onVerseMutationCommitted,
       refreshBoxes,
-      refreshPublicBoxes,
       refreshSelectedBox,
       telegramId,
     ],
@@ -1021,53 +1019,54 @@ export function TextsScreen({
   );
 
   const renderBoxesList = () => {
-    const isMineMode = boxesViewMode === "mine";
+    const heading = boxesViewMode === "mine" ? "Мои коробки" : "Коробки друзей";
     const countLabel = formatRussianCount(
-      isMineMode ? boxes.length : publicBoxesTotal,
+      boxesViewMode === "mine" ? boxes.length : friendBoxesTotal,
       ["коробка", "коробки", "коробок"],
     );
 
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3">
+        <div className="w-full">
+          <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+            {heading}
+          </h1>
+        </div>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="w-full">
-            <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
-              {isMineMode ? "Мои коробки" : "Публичные коробки"}
-            </h1>
-          </div>
-
           <CompactSegmentedControl<BoxesViewMode>
             value={boxesViewMode}
             items={[
               { value: "mine", label: "Мои" },
-              { value: "public", label: "Публичные" },
+              { value: "friends", label: "Друзья" },
             ]}
             onChange={handleBoxesViewModeChange}
           />
-          {!selectedBoxId &&
-          !selectedPublicBoxId &&
-          activeTab === "boxes" &&
-          boxesViewMode === "mine" ? (
-            <Button
-              type="button"
-              className="rounded-full p-4 shadow-[var(--shadow-floating)]"
-              onClick={openCreateDrawer}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          ) : null}
+          <div className="">
+            {!selectedBoxId &&
+            !selectedPublicBoxId &&
+            activeTab === "boxes" &&
+            boxesViewMode === "mine" ? (
+              <Button
+                type="button"
+                className="rounded-full p-4 shadow-[var(--shadow-floating)]"
+                onClick={openCreateDrawer}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <p className="my-2 px-2 text-sm text-text-muted">{countLabel}</p>
+        <p className="text-[11px] font-medium text-text-muted">{countLabel}</p>
 
         <ScrollShadowContainer
           className="min-h-0 flex-1"
-          scrollClassName="py-4"
           showShadows
           topOnly
-          shadowStyle="inset"
+          shadowSize={56}
+          shadowStyle="mask"
         >
-          {isMineMode ? (
+          {boxesViewMode === "mine" ? (
             isLoadingBoxes ? (
               <div className="flex h-full items-center justify-center text-text-muted">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -1081,7 +1080,7 @@ export function TextsScreen({
                 Коробок пока нет
               </TextSurfaceCard>
             ) : (
-              <div className="space-y-3 !bg-transparent">
+              <div className="space-y-3 mb-4">
                 {boxes.map((box) => (
                   <TextBoxCard
                     key={box.id}
@@ -1094,48 +1093,50 @@ export function TextsScreen({
                 ))}
               </div>
             )
-          ) : isLoadingPublicBoxes ? (
-            <div className="flex h-full items-center justify-center text-text-muted">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : publicBoxesError ? (
-            <TextSurfaceCard className="p-4 text-sm text-text-secondary">
-              {publicBoxesError}
-            </TextSurfaceCard>
-          ) : publicBoxes.length === 0 ? (
-            <TextSurfaceCard className="p-5 text-sm text-text-secondary">
-              Публичных коробок пока нет
-            </TextSurfaceCard>
           ) : (
-            <div className="space-y-3 !bg-transparent">
-              {publicBoxes.map((box) => (
-                <TextBoxCard
-                  key={box.id}
-                  box={box}
-                  owner={box.owner}
-                  summary={buildPublicTextBoxSummaryLabel(box)}
-                  stats={buildTextBoxStats(box)}
-                  onOpen={() => setSelectedPublicBoxId(box.id)}
-                />
-              ))}
+            isLoadingFriendBoxes ? (
+              <div className="flex h-full items-center justify-center text-text-muted">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : friendBoxesError ? (
+              <TextSurfaceCard className="p-4 text-sm text-text-secondary">
+                {friendBoxesError}
+              </TextSurfaceCard>
+            ) : friendBoxes.length === 0 ? (
+              <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+                Коробок друзей пока нет
+              </TextSurfaceCard>
+            ) : (
+              <div className="space-y-3 mb-4">
+                {friendBoxes.map((box) => (
+                  <TextBoxCard
+                    key={box.id}
+                    box={box}
+                    owner={box.owner}
+                    summary={buildPublicTextBoxSummaryLabel(box)}
+                    stats={buildTextBoxStats(box)}
+                    onOpen={() => setSelectedPublicBoxId(box.id)}
+                  />
+                ))}
 
-              {hasMorePublicBoxes ? (
-                <div className="pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 w-full rounded-full"
-                    disabled={isLoadingMorePublicBoxes}
-                    onClick={() => void loadMorePublicBoxes()}
-                  >
-                    {isLoadingMorePublicBoxes ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    Показать ещё
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+                {hasMoreFriendBoxes ? (
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full rounded-full"
+                      disabled={isLoadingMoreFriendBoxes}
+                      onClick={() => void loadMoreFriendBoxes()}
+                    >
+                      {isLoadingMoreFriendBoxes ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Показать ещё
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )
           )}
         </ScrollShadowContainer>
       </div>
@@ -1160,14 +1161,14 @@ export function TextsScreen({
               <div className="min-w-0 flex-1 overflow-hidden">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2
-                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
                     title={visibleBoxTitle}
                   >
                     {visibleBoxTitle}
                   </h2>
-                  {visibleBox.visibility === "public" ? (
+                  {visibleBox.visibility !== "private" ? (
                     <span className="inline-flex items-center rounded-full border border-brand-primary/15 bg-brand-primary/8 px-2.5 py-1 text-[11px] font-medium text-brand-primary/88">
-                      Публичная
+                      {getTextBoxVisibilityLabel(visibleBox.visibility)}
                     </span>
                   ) : null}
                 </div>
@@ -1271,7 +1272,7 @@ export function TextsScreen({
                           variant="ghost"
                           className="rounded-full px-3 text-state-error hover:text-state-error"
                           disabled={isBusy}
-                          onClick={() => void handleRemoveVerse(verse)}
+                          onClick={() => setRemoveVerseTarget(verse)}
                         >
                           {isBusy ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1300,7 +1301,7 @@ export function TextsScreen({
           className="inline-flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
-          Публичные коробки
+          Коробки друзей
         </button>
 
         {visiblePublicBox ? (
@@ -1309,7 +1310,7 @@ export function TextsScreen({
               <div className="min-w-0 flex-1 overflow-hidden">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2
-                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
                     title={visiblePublicBox.title}
                   >
                     {visiblePublicBox.title}
@@ -1433,6 +1434,11 @@ export function TextsScreen({
         titleValue={editorTitle}
         isSubmitting={isEditorSubmitting}
         onTitleChange={setEditorTitle}
+        onVisibilityChange={(visibility) =>
+          setEditorState((prev) =>
+            prev?.mode === "create" ? { ...prev, visibility } : prev,
+          )
+        }
         onSubmit={() => void handleSaveBox()}
         onOpenChange={handleEditorOpenChange}
       />
@@ -1456,6 +1462,24 @@ export function TextsScreen({
         submittingVerseId={replacementSubmittingId}
         onSelect={(verse) => void handleReplaceLearningVerse(verse)}
         onOpenChange={handleReplacementDrawerOpenChange}
+      />
+
+      <VerseDeleteDrawer
+        open={removeVerseTarget !== null}
+        isActionPending={
+          removeVerseTarget !== null &&
+          busyVerseId === removeVerseTarget.externalVerseId
+        }
+        onOpenChange={(open) => {
+          if (!open) setRemoveVerseTarget(null);
+        }}
+        onConfirm={() => {
+          if (removeVerseTarget) {
+            void handleRemoveVerse(removeVerseTarget).then(() =>
+              setRemoveVerseTarget(null),
+            );
+          }
+        }}
       />
 
       {galleryState ? (

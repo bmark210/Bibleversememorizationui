@@ -1,117 +1,66 @@
+import type { domain_CatalogVerseLookupResponse } from "@/api/models/domain_CatalogVerseLookupResponse";
 import type { domain_CatalogVersesPageResponse } from "@/api/models/domain_CatalogVersesPageResponse";
-import type { bible_memory_db_internal_domain_VerseListItem as BackendVerse } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
-import { publicApiUrl } from "@/lib/publicApiBase";
+import type { api_LookupCatalogVersesRequest } from "@/api/models/api_LookupCatalogVersesRequest";
+import { CatalogService } from "@/api/services/CatalogService";
 
-type FetchCatalogVersesPageParams = {
+export type FetchCatalogVersesPageParams = {
   telegramId?: string;
   translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
   bookId?: number;
   popularOnly?: boolean;
-  tagSlugs?: string[];
+  /** Comma-separated slugs or a list (will be joined). */
+  tagSlugs?: string | string[];
   search?: string;
   orderBy?: string;
   order?: string;
-  limit?: number;
+  limit: number;
   startWith?: number;
 };
 
-type LookupCatalogVersesParams = {
-  telegramId?: string;
-  translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
-  externalVerseIds: string[];
-};
-
-type LookupCatalogVersesResponse = {
-  items: BackendVerse[];
-};
+function normalizeTagSlugs(
+  tagSlugs?: string | string[],
+): string | undefined {
+  if (tagSlugs == null) return undefined;
+  if (Array.isArray(tagSlugs)) {
+    const joined = tagSlugs.map((s) => String(s).trim()).filter(Boolean).join(",");
+    return joined || undefined;
+  }
+  const s = tagSlugs.trim();
+  return s || undefined;
+}
 
 export async function fetchCatalogVersesPage(
   params: FetchCatalogVersesPageParams,
 ): Promise<domain_CatalogVersesPageResponse> {
-  const query = new URLSearchParams();
+  const {
+    telegramId,
+    translation,
+    bookId,
+    popularOnly,
+    tagSlugs,
+    search,
+    orderBy = "createdAt",
+    order = "desc",
+    limit,
+    startWith,
+  } = params;
 
-  if (params.telegramId) query.set("telegramId", params.telegramId);
-  if (params.translation) query.set("translation", params.translation);
-  if (typeof params.bookId === "number")
-    query.set("bookId", String(params.bookId));
-  if (params.popularOnly) query.set("popularOnly", "true");
-  if (params.tagSlugs?.length) {
-    query.set("tagSlugs", params.tagSlugs.filter(Boolean).join(","));
-  }
-  if (params.search?.trim()) query.set("search", params.search.trim());
-  query.set("orderBy", params.orderBy ?? "createdAt");
-  query.set("order", params.order ?? "desc");
-  query.set("limit", String(params.limit ?? 20));
-  if (typeof params.startWith === "number")
-    query.set("startWith", String(params.startWith));
-
-  const response = await fetch(
-    publicApiUrl(`/api/verses?${query.toString()}`),
-    {
-      cache: "no-store",
-    },
+  return CatalogService.listCatalogVerses(
+    telegramId,
+    translation,
+    bookId,
+    popularOnly,
+    normalizeTagSlugs(tagSlugs),
+    search,
+    orderBy,
+    order,
+    limit,
+    startWith,
   );
-
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const payload = (await response.json()) as { error?: unknown };
-      if (typeof payload.error === "string" && payload.error.trim()) {
-        message = payload.error.trim();
-      }
-    } catch {
-      // Keep the status-based message if the response body is not JSON.
-    }
-    throw new Error(message);
-  }
-
-  const payload = (await response.json()) as domain_CatalogVersesPageResponse;
-
-  return {
-    ...payload,
-    items: payload.items ?? [],
-    totalCount: payload.totalCount ?? payload.items?.length ?? 0,
-  };
 }
 
 export async function lookupCatalogVerses(
-  params: LookupCatalogVersesParams,
-): Promise<LookupCatalogVersesResponse> {
-  const externalVerseIds = Array.from(
-    new Set(params.externalVerseIds.map((id) => id.trim()).filter(Boolean)),
-  );
-  if (externalVerseIds.length === 0) {
-    return { items: [] };
-  }
-
-  const response = await fetch(publicApiUrl("/api/verses/lookup"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-    body: JSON.stringify({
-      telegramId: params.telegramId,
-      translation: params.translation,
-      externalVerseIds,
-    }),
-  });
-
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const payload = (await response.json()) as { error?: unknown };
-      if (typeof payload.error === "string" && payload.error.trim()) {
-        message = payload.error.trim();
-      }
-    } catch {
-      // Keep the status-based message if the response body is not JSON.
-    }
-    throw new Error(message);
-  }
-
-  const payload = (await response.json()) as LookupCatalogVersesResponse;
-  return {
-    items: payload.items ?? [],
-  };
+  request: api_LookupCatalogVersesRequest,
+): Promise<domain_CatalogVerseLookupResponse> {
+  return CatalogService.lookupCatalogVerses(request);
 }

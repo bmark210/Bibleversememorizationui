@@ -4,7 +4,7 @@
  * scale the same way across narrow / small / large breakpoints.
  */
 
-export const SURFACE_PAD = "p-3.5 narrow:px-3 narrow:py-2 sm:p-4 lg:p-5";
+export const SURFACE_PAD = "p-3.5 narrow:px-3 narrow:py-3 sm:p-4 lg:p-5";
 
 export const SECTION_GAP = "gap-2 narrow:gap-1.5";
 
@@ -31,7 +31,7 @@ export const STAT_PAD =
 export const STAT_LABEL = "text-[10px] narrow:text-[9px]";
 
 export const STAT_VALUE =
-  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-0 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)]";
+  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-0 narrow:text-[clamp(1.12rem,6vw,5rem)]";
 
 export const ROW_PAD =
   "rounded-[1.2rem] px-3 py-2 narrow:gap-2.5 narrow:px-2.5 narrow:py-1.75";

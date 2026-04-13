@@ -16,7 +16,7 @@
     "check:dead-code": "tsc -p tsconfig.unused.json --pretty false --noEmit",
     "check:artifacts": "node scripts/check-repo-artifacts.mjs",
     "quality:gate": "npm run lint && npm run check:dead-code && npm run check:artifacts",
-    "generate-api": "tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios && npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
+    "generate-api": "tsx scripts/generate-api-full.ts",
     "generate-api:fetch": "tsx scripts/generate-openapi.ts",
     "generate-api:codegen": "npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
     "generate-api:types": "npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",

@@ -1,51 +1,89 @@
-import type { domain_UserVersesPageResponse } from "@/api/models/domain_UserVersesPageResponse";
+import type { domain_UserVersesPageResponse } from "../models/domain_UserVersesPageResponse";
+import type { domain_VerseListItem } from "../models/domain_VerseListItem";
 import { UserVersesService } from "./UserVersesService";
 
-type FetchUserVersesPageParams = {
+export type FetchUserVersesPageParams = {
   telegramId: string;
-  status?: "MY" | "LEARNING" | "STOPPED";
+  status?: "QUEUE" | "LEARNING" | "STOPPED";
   orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
   filter?: "catalog" | "my" | "learning" | "review" | "mastered" | "stopped";
   bookId?: number;
+  popularOnly?: boolean;
   search?: string;
-  tagSlugs?: string[];
-  limit?: number;
+  tagSlugs?: string | string[];
+  limit: number;
   startWith?: number;
 };
+
+function normalizeTagSlugs(
+  tagSlugs?: string | string[],
+): string | undefined {
+  if (tagSlugs == null) return undefined;
+  if (Array.isArray(tagSlugs)) {
+    const joined = tagSlugs.map((s) => String(s).trim()).filter(Boolean).join(",");
+    return joined || undefined;
+  }
+  const s = tagSlugs.trim();
+  return s || undefined;
+}
 
 export async function fetchUserVersesPage(
   params: FetchUserVersesPageParams,
 ): Promise<domain_UserVersesPageResponse> {
-  const response = await UserVersesService.listUserVerses(
+  return UserVersesService.listUserVerses(
     params.telegramId,
     params.status,
     params.orderBy,
     params.order,
     params.filter,
     params.bookId,
+    params.popularOnly,
     params.search,
-    params.tagSlugs?.filter(Boolean).join(",") || undefined,
-    params.limit ?? 20,
+    normalizeTagSlugs(params.tagSlugs),
+    params.limit,
     params.startWith,
   );
-
-  return {
-    ...response,
-    items: response.items ?? [],
-    limit: response.limit ?? params.limit ?? 20,
-    offset: response.offset ?? params.startWith ?? 0,
-    total: response.total ?? response.totalCount ?? response.items?.length ?? 0,
-    totalCount: response.totalCount ?? response.total ?? response.items?.length ?? 0,
-  };
 }
 
+const ALL_VERSES_PAGE_SIZE = 100;
+
+/** Загружает все стихи пользователя (filter `my`) постранично. */
 export async function fetchAllUserVerses(params: {
   telegramId: string;
-}): Promise<domain_UserVersesPageResponse["items"]> {
-  const response = await fetchUserVersesPage({
-    telegramId: params.telegramId,
-    limit: 100,
-  });
-  return response.items ?? [];
+}): Promise<domain_VerseListItem[]> {
+  const all: domain_VerseListItem[] = [];
+  let startWith = 0;
+
+  for (;;) {
+    const page = await UserVersesService.listUserVerses(
+      params.telegramId,
+      undefined,
+      "updatedAt",
+      "desc",
+      "my",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      ALL_VERSES_PAGE_SIZE,
+      startWith,
+    );
+
+    const items = page.items ?? [];
+    if (items.length === 0) {
+      break;
+    }
+
+    all.push(...items);
+
+    const total = page.totalCount ?? page.total ?? all.length;
+    if (items.length < ALL_VERSES_PAGE_SIZE || all.length >= total) {
+      break;
+    }
+
+    startWith += items.length;
+  }
+
+  return all;
 }
