@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import App from './App'
 import { TelegramProvider } from './contexts/TelegramContext'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Smartphone } from 'lucide-react'
 import { getTelegramWebApp } from './lib/telegramWebApp'
 
 const TelegramDevPanel =
@@ -24,6 +24,8 @@ const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
 const ALLOW_BROWSER_RUNTIME =
   process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ALLOW_BROWSER_RUNTIME === '1'
+
+const MOBILE_MAX_WIDTH_PX = 768
 
 const APP_VERSION_DISPLAY = '4'
 
@@ -52,6 +54,7 @@ export default function Page() {
   const [overlayDismissing, setOverlayDismissing] = useState(false)
   const [showBootOverlay, setShowBootOverlay] = useState(true)
   const [showAppContent, setShowAppContent] = useState(false)
+  const [isScreenTooLarge, setIsScreenTooLarge] = useState<boolean | null>(null)
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -64,6 +67,19 @@ export default function Page() {
     if (typeof window === 'undefined') return
     const hasTelegramWebApp = Boolean(getTelegramWebApp())
     setIsTelegramWebApp(hasTelegramWebApp)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const checkScreenSize = () => {
+      const isTooLarge = window.innerWidth > MOBILE_MAX_WIDTH_PX
+      setIsScreenTooLarge(isTooLarge)
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
   useEffect(() => {
@@ -135,6 +151,36 @@ export default function Page() {
                 className="inline-flex w-full items-center justify-center rounded-2xl border border-brand-primary bg-brand-primary px-4 py-3 text-sm font-semibold text-brand-primary-foreground transition hover:bg-brand-primary-hover"
               >
                 Перейти в @bible_memory_bot
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isScreenTooLarge === true) {
+    return (
+      <div className="relative min-h-screen bg-bg-app px-5 py-8 text-text-primary sm:px-6">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
+          <div className="w-full overflow-hidden rounded-[2rem] border border-border-subtle bg-bg-overlay shadow-[var(--shadow-floating)] backdrop-blur-2xl">
+            <div className="flex h-72 w-full items-center justify-center bg-gradient-to-br from-brand-primary/20 to-brand-primary/5">
+              <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] border border-brand-primary/30 bg-bg-overlay">
+                <Smartphone className="h-12 w-12 stroke-[1.5px] text-brand-primary" />
+              </div>
+            </div>
+            <div className="space-y-4 p-5">
+              <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary">Только для мобильных устройств</h1>
+              <p className="text-sm leading-relaxed text-text-secondary">
+                Это приложение разработано специально для смартфонов. Пожалуйста, откройте его на мобильном устройстве.
+              </p>
+              <a
+                href={TELEGRAM_BOT_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-brand-primary bg-brand-primary px-4 py-3 text-sm font-semibold text-brand-primary-foreground transition hover:bg-brand-primary-hover"
+              >
+                Открыть в Telegram
               </a>
             </div>
           </div>
