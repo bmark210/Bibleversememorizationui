@@ -390,6 +390,58 @@ function BoxSettingsDrawer({
   );
 }
 
+function TextBoxDeleteDrawer({
+  box,
+  open,
+  isActionPending,
+  onOpenChange,
+  onConfirm,
+}: {
+  box: Pick<TextBoxSummary, "title"> | null;
+  open: boolean;
+  isActionPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader className="pb-1">
+          <DrawerTitle className="text-base text-foreground/90">
+            Удалить коробку?
+          </DrawerTitle>
+          <p className="text-sm text-muted-foreground/80">
+            Это действие нельзя отменить. Коробка
+            {box?.title ? ` «${box.title}»` : ""} будет удалена вместе с её
+            составом.
+          </p>
+        </DrawerHeader>
+        <DrawerFooter className="flex-row gap-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 flex-1 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+            onClick={() => onOpenChange(false)}
+          >
+            Отмена
+          </Button>
+          <Button
+            type="button"
+            className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
+            disabled={isActionPending}
+            onClick={onConfirm}
+          >
+            {isActionPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Удалить
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 export function TextsScreen({
   reopenTextBoxId = null,
   reopenTextBoxTitle = null,
@@ -410,6 +462,9 @@ export function TextsScreen({
   const [editorTitle, setEditorTitle] = useState("");
   const [isEditorSubmitting, setIsEditorSubmitting] = useState(false);
   const [settingsBox, setSettingsBox] = useState<TextBoxSummary | null>(null);
+  const [deleteBoxTarget, setDeleteBoxTarget] = useState<TextBoxSummary | null>(
+    null,
+  );
   const [isDeletingBox, setIsDeletingBox] = useState(false);
   const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
   const [isImportingPublicBox, setIsImportingPublicBox] = useState(false);
@@ -699,6 +754,12 @@ export function TextsScreen({
     }
   }, []);
 
+  const handleDeleteBoxDrawerOpenChange = useCallback((open: boolean) => {
+    if (!open && !isDeletingBox) {
+      setDeleteBoxTarget(null);
+    }
+  }, [isDeletingBox]);
+
   const handleUpdateBoxVisibility = useCallback(
     async (visibility: TextBoxVisibility) => {
       if (!settingsBox || settingsBox.visibility === visibility) return;
@@ -730,17 +791,18 @@ export function TextsScreen({
   );
 
   const handleDeleteBox = useCallback(async () => {
-    if (!settingsBox) return;
+    if (!deleteBoxTarget) return;
     setIsDeletingBox(true);
     try {
-      const boxId = settingsBox.id;
-      const title = settingsBox.title;
+      const boxId = deleteBoxTarget.id;
+      const title = deleteBoxTarget.title;
       await removeBox(boxId);
       await refreshFriendBoxes();
       if (selectedBoxId === boxId) {
         setSelectedBoxId(null);
       }
       setSettingsBox(null);
+      setDeleteBoxTarget(null);
       toast.success("Коробка удалена", { description: title, label: "Тексты" });
     } catch (error) {
       toast.error(
@@ -750,7 +812,7 @@ export function TextsScreen({
     } finally {
       setIsDeletingBox(false);
     }
-  }, [refreshFriendBoxes, removeBox, selectedBoxId, settingsBox]);
+  }, [deleteBoxTarget, refreshFriendBoxes, removeBox, selectedBoxId]);
 
   const handlePatchVerse = useCallback(
     async (verse: Verse) => {
@@ -1395,7 +1457,7 @@ export function TextsScreen({
     <>
       <div
         className={cn(
-          "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6",
+          "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6 overflow-hidden",
           !selectedBoxId && !selectedPublicBoxId && activeTab === "boxes",
         )}
       >
@@ -1449,10 +1511,22 @@ export function TextsScreen({
         isUpdatingVisibility={isUpdatingBoxVisibility}
         onOpenChange={handleSettingsOpenChange}
         onRename={() => settingsBox && openRenameDrawer(settingsBox)}
-        onDelete={() => void handleDeleteBox()}
+        onDelete={() => {
+          if (!settingsBox) return;
+          setDeleteBoxTarget(settingsBox);
+          setSettingsBox(null);
+        }}
         onVisibilityChange={(visibility) =>
           void handleUpdateBoxVisibility(visibility)
         }
+      />
+
+      <TextBoxDeleteDrawer
+        box={deleteBoxTarget}
+        open={deleteBoxTarget !== null}
+        isActionPending={isDeletingBox}
+        onOpenChange={handleDeleteBoxDrawerOpenChange}
+        onConfirm={() => void handleDeleteBox()}
       />
 
       <LearningReplacementDrawer

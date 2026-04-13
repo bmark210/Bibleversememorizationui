@@ -13,9 +13,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border-brand-primary bg-brand-primary text-brand-primary-foreground shadow-[var(--shadow-soft)] hover:bg-brand-primary-hover hover:border-brand-primary-hover active:bg-brand-primary-active active:border-brand-primary-active",
+          "border-brand-primary bg-brand-primary text-brand-primary-foreground shadow-[var(--shadow-soft)] hover:bg-brand-primary-hover hover:border-brand-primary-hover",
         destructive:
-          "border-state-error bg-state-error text-text-inverse shadow-[var(--shadow-soft)] hover:bg-state-error/90 hover:border-state-error active:translate-y-[1px]",
+          "border-state-error bg-state-error text-text-inverse shadow-[var(--shadow-soft)] hover:bg-state-error/90 hover:border-state-error",
         outline:
           "border-border-default bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)] hover:border-brand-primary/30 hover:bg-bg-surface hover:text-brand-primary",
         secondary:
