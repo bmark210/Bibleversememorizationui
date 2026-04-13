@@ -9,12 +9,12 @@ import {
 } from "@/api/services/playerProfile";
 import { toast } from "@/app/lib/toast";
 import { formatXp } from "@/shared/social/formatXp";
+import { cn } from "./ui/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -50,7 +50,6 @@ function formatHandle(nickname: string | null, telegramId: string) {
       ? normalizedNickname
       : `@${normalizedNickname}`;
   }
-
   return `ID ${telegramId}`;
 }
 
@@ -60,7 +59,7 @@ function formatRelativeLastActive(value: string | null): string {
   if (Number.isNaN(parsed)) return "Пока без активности";
 
   const deltaMs = Date.now() - parsed;
-  if (deltaMs < 2 * 60 * 1000) return "Только что был в приложении";
+  if (deltaMs < 2 * 60 * 1000) return "Только что";
 
   const minutes = Math.floor(deltaMs / (60 * 1000));
   if (minutes < 60) return `${minutes} мин назад`;
@@ -88,19 +87,13 @@ function formatJoinDate(value: string | null) {
   });
 }
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl border border-border/60 bg-background/60 px-4 py-3">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/44">
+    <div className="rounded-[1.35rem] border border-border-subtle/80 bg-bg-surface px-4 py-3.5">
+      <div className="text-[11px] font-medium uppercase tracking-widest text-text-muted">
         {label}
       </div>
-      <div className="mt-2 text-2xl text-primary font-semibold tracking-tight">
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-brand-primary">
         {value}
       </div>
     </div>
@@ -121,9 +114,7 @@ export function PlayerProfileDrawer({
   const requestIdRef = React.useRef(0);
 
   const loadProfile = React.useCallback(async () => {
-    if (!open || !viewerTelegramId || !preview?.telegramId) {
-      return;
-    }
+    if (!open || !viewerTelegramId || !preview?.telegramId) return;
 
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
@@ -132,7 +123,7 @@ export function PlayerProfileDrawer({
     try {
       const nextProfile = await fetchPlayerProfile(
         viewerTelegramId,
-        preview.telegramId
+        preview.telegramId,
       );
       if (requestIdRef.current !== requestId) return;
       setProfile(nextProfile);
@@ -142,12 +133,10 @@ export function PlayerProfileDrawer({
       setLoadError(
         error instanceof Error
           ? error.message
-          : "Не удалось загрузить профиль игрока"
+          : "Не удалось загрузить профиль игрока",
       );
     } finally {
-      if (requestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
+      if (requestIdRef.current === requestId) setIsLoading(false);
     }
   }, [open, preview?.telegramId, viewerTelegramId]);
 
@@ -166,30 +155,27 @@ export function PlayerProfileDrawer({
     }
 
     setProfile((prev) =>
-      prev?.telegramId === preview?.telegramId ? prev : null
+      prev?.telegramId === preview?.telegramId ? prev : null,
     );
     void loadProfile();
   }, [loadProfile, open, preview?.telegramId, viewerTelegramId]);
 
   const handleToggleFriend = async () => {
-    if (!viewerTelegramId || !profile || profile.isCurrentUser) {
-      return;
-    }
+    if (!viewerTelegramId || !profile || profile.isCurrentUser) return;
 
     setIsMutating(true);
     try {
       if (profile.isFriend) {
-        const response = await removeFriend(viewerTelegramId, profile.telegramId);
+        const response = await removeFriend(
+          viewerTelegramId,
+          profile.telegramId,
+        );
         setProfile((prev) => (prev ? { ...prev, isFriend: false } : prev));
-        (
-          response.status === "removed" ? toast.success : toast.info
-        )(
+        (response.status === "removed" ? toast.success : toast.info)(
           response.status === "removed"
             ? "Друг удалён"
             : "Пользователь уже не был у вас в друзьях",
-          {
-            label: "Друзья",
-          }
+          { label: "Друзья" },
         );
       } else {
         const response = await addFriend(viewerTelegramId, profile.telegramId);
@@ -201,17 +187,13 @@ export function PlayerProfileDrawer({
                   response.status === "added" ||
                   response.status === "already-following",
               }
-            : prev
+            : prev,
         );
-        (
-          response.status === "added" ? toast.success : toast.info
-        )(
+        (response.status === "added" ? toast.success : toast.info)(
           response.status === "added"
             ? "Друг добавлен"
             : "Пользователь уже у вас в друзьях",
-          {
-            label: "Друзья",
-          }
+          { label: "Друзья" },
         );
       }
 
@@ -221,9 +203,7 @@ export function PlayerProfileDrawer({
         error instanceof Error
           ? error.message
           : "Не удалось изменить список друзей",
-        {
-          label: "Друзья",
-        }
+        { label: "Друзья" },
       );
     } finally {
       setIsMutating(false);
@@ -238,52 +218,46 @@ export function PlayerProfileDrawer({
   const joinedAtLabel = formatJoinDate(profile?.createdAt ?? null);
   const subtitle =
     profile != null ? formatHandle(profile.nickname, profile.telegramId) : null;
-  const profileXp = profile?.xp ?? 0;
-  const profileMasteredVerses = profile?.masteredVerses ?? 0;
-  const profileDailyStreak = profile?.dailyStreak ?? 0;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent
-        overlayClassName="z-[140]"
-        className="z-[141] rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
-      >
+      <DrawerContent className="px-4">
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start gap-4">
-            <Avatar className="h-16 w-16 border border-border/60 bg-background/70">
+            <Avatar className="h-16 w-16 shrink-0 border border-border-subtle bg-bg-surface">
               {resolvedAvatarUrl ? (
                 <AvatarImage src={resolvedAvatarUrl} alt={resolvedName} />
               ) : null}
-              <AvatarFallback className="bg-secondary text-secondary-foreground">
+              <AvatarFallback className="bg-bg-subtle text-sm text-text-secondary">
                 {getInitials(resolvedName || "Игрок")}
               </AvatarFallback>
             </Avatar>
 
             <div className="min-w-0 flex-1">
-              <DrawerTitle className="truncate text-xl tracking-tight text-foreground/88">
+              <DrawerTitle className="truncate">
                 {resolvedName}
               </DrawerTitle>
-              <DrawerDescription className="mt-1 truncate text-sm text-foreground/56">
+              <p className="mt-1 truncate text-sm text-text-secondary">
                 {subtitle ?? (resolvedTelegramId ? `ID ${resolvedTelegramId}` : "")}
-              </DrawerDescription>
+              </p>
 
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {profile?.isCurrentUser ? (
-                  <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-primary">
+                  <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-xs font-medium text-brand-primary">
                     Ваш профиль
                   </span>
                 ) : profile?.isFriend ? (
-                  <span className="inline-flex items-center rounded-full border border-status-learning/25 bg-status-learning-soft px-3 py-1 text-status-learning">
-                      В друзьях
-                    </span>
+                  <span className="inline-flex items-center rounded-full border border-border-subtle/80 bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                    В друзьях
+                  </span>
                 ) : profile ? (
-                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-foreground/62">
+                  <span className="inline-flex items-center rounded-full border border-border-subtle/60 bg-bg-elevated px-3 py-1 text-xs font-medium text-text-muted">
                     Можно добавить в друзья
                   </span>
                 ) : null}
 
                 {activityLabel ? (
-                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-foreground/62">
+                  <span className="inline-flex items-center rounded-full border border-border-subtle/60 bg-bg-elevated px-3 py-1 text-xs font-medium text-text-muted">
                     {activityLabel}
                   </span>
                 ) : null}
@@ -294,56 +268,48 @@ export function PlayerProfileDrawer({
 
         <div className="mt-5">
           {isLoading ? (
-            <div className="space-y-4">
-              <div className="h-16 animate-pulse rounded-3xl border border-border/60 bg-background/60" />
+            <div className="space-y-3">
+              <div className="h-16 animate-pulse rounded-[1.45rem] border border-border-subtle/80 bg-bg-surface" />
               <div className="grid grid-cols-2 gap-3">
                 {Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={`player-profile-skeleton-${index}`}
-                    className="h-24 animate-pulse rounded-3xl border border-border/60 bg-background/60"
+                    className="h-24 animate-pulse rounded-[1.35rem] border border-border-subtle/80 bg-bg-surface"
                   />
                 ))}
               </div>
             </div>
           ) : loadError ? (
-            <div className="rounded-3xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            <div className="rounded-[1.35rem] border border-state-error/25 bg-state-error/10 p-4 text-sm text-state-error">
               <div>{loadError}</div>
               <div className="mt-3">
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   onClick={() => void loadProfile()}
-                  className="h-9 rounded-full border-destructive/25 bg-background/70 px-4 text-xs text-foreground/78 shadow-none"
+                  className="h-9 rounded-full border-state-error/25 bg-bg-surface px-4 text-xs text-text-secondary shadow-none"
                 >
                   Повторить
                 </Button>
               </div>
             </div>
           ) : profile ? (
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-border/60 bg-background/60 px-4 py-3 text-sm leading-relaxed text-foreground/62">
+            <div className="space-y-3">
+              <div className="rounded-[1.45rem] border border-border-subtle/80 bg-bg-surface px-4 py-3.5 text-sm leading-relaxed text-text-secondary">
                 <div>Активность: {activityLabel ?? "Пока без активности"}</div>
-                <div className="mt-1">
-                  {joinedAtLabel
-                    ? `В приложении с ${joinedAtLabel}`
-                    : "Дата регистрации пока недоступна"}
-                </div>
+                {joinedAtLabel ? (
+                  <div className={cn("text-text-muted", activityLabel && "mt-1")}>
+                    В приложении с {joinedAtLabel}
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <StatCard
-                  label="XP"
-                  value={formatXp(profileXp)}
-                />
-                <StatCard
-                  label="Выучено"
-                  value={`${profileMasteredVerses}`}
-                />
-                <StatCard
-                  label="За 7 дней"
-                  value={`${profile.weeklyRepetitions}`}
-                />
-                <StatCard label="Серия" value={`${profileDailyStreak} дн`} />
+                <StatCard label="XP" value={formatXp(profile.xp)} />
+                <StatCard label="Выучено" value={`${profile.masteredVerses}`} />
+                <StatCard label="За 7 дней" value={`${profile.weeklyRepetitions}`} />
+                <StatCard label="Серия" value={`${profile.dailyStreak} дн`} />
               </div>
             </div>
           ) : null}
@@ -351,16 +317,17 @@ export function PlayerProfileDrawer({
 
         <DrawerFooter className="px-0 pt-5">
           <div
-            className={`grid grid-cols-1 gap-2 ${
-              profile?.isCurrentUser ? "sm:grid-cols-1" : "sm:grid-cols-2"
-            }`}
+            className={cn(
+              "grid gap-2",
+              !profile?.isCurrentUser ? "grid-cols-2" : "grid-cols-1",
+            )}
           >
             {!profile?.isCurrentUser ? (
               <Button
                 type="button"
                 disabled={!profile || isLoading || isMutating || Boolean(loadError)}
                 onClick={() => void handleToggleFriend()}
-                className="h-11 rounded-2xl bg-primary/60 text-primary-foreground  border border-primary/20"
+                className="h-11 rounded-[1.2rem]"
               >
                 {profile?.isFriend ? (
                   <>
@@ -380,7 +347,7 @@ export function PlayerProfileDrawer({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="h-11 rounded-2xl border-border/60 bg-background/60 shadow-none"
+              className="h-11 rounded-[1.2rem] border-border-subtle/80 bg-bg-surface shadow-none"
             >
               Закрыть
             </Button>

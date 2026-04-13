@@ -670,7 +670,7 @@ export function Community({
         ) : (
           <>
             <div className="space-y-3">
-              <div className="grid gap-3 grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+              <div className="grid gap-3 grid-rows-[auto_minmax(0,1fr)] sm:items-center">
                 <div className="inline-flex w-full rounded-[1.15rem] border border-border-subtle/80 bg-bg-elevated/70 p-1 shadow-[var(--shadow-soft)] sm:w-auto">
                   {(
                     [
