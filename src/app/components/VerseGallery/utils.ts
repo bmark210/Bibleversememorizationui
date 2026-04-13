@@ -16,12 +16,10 @@ import { triggerHaptic } from "@/app/lib/haptics";
 import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type {
-  TrainingContactToastPayload,
-  TrainingCompletionToastCardPayload,
-} from "@/app/components/verse-gallery/TrainingCompletionToastCard";
-import type {
   HapticStyle,
   ModeId,
+  TrainingContactToastPayload,
+  TrainingCompletionToastCardPayload,
   TrainingVerseState,
   TrainingSubsetFilter,
   VersePreviewOverride,

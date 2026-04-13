@@ -1457,8 +1457,9 @@ export function TextsScreen({
     <>
       <div
         className={cn(
-          "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6 overflow-hidden",
+          "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4",
           !selectedBoxId && !selectedPublicBoxId && activeTab === "boxes",
+          !selectedBoxId && !selectedPublicBoxId && activeTab === "catalog" && "overflow-hidden"
         )}
       >
         {!selectedBoxId && !selectedPublicBoxId ? (

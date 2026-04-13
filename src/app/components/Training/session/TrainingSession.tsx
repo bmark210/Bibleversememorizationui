@@ -15,7 +15,7 @@ import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
-import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
+import type { TrainingSubsetFilter as TrainingSubsetSelectValue } from "@/app/components/VerseGallery/types";
 import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";

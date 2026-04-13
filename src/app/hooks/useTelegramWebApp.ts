@@ -5,11 +5,9 @@ import {
   getTelegramWebApp,
   type TelegramColorScheme,
   type TelegramInitDataUnsafe,
-  type TelegramPopupParams,
   type TelegramThemeParams,
   type TelegramWebApp,
 } from '@/app/lib/telegramWebApp';
-import { triggerHaptic } from '../lib/haptics';
 
 let webAppSdk: TelegramWebApp | null =
   typeof window !== 'undefined' ? getTelegramWebApp() : null;
@@ -132,123 +130,4 @@ export function useTelegramWebApp() {
   }, []);
 
   return state;
-}
-
-/**
- * Показать всплывающее уведомление в Telegram
- */
-export function showTelegramAlert(message: string) {
-  if (webAppSdk?.showAlert) {
-    webAppSdk.showAlert(message);
-  } else {
-    alert(message);
-  }
-}
-
-/**
- * Показать подтверждение в Telegram
- */
-export function showTelegramConfirm(message: string, callback: (confirmed: boolean) => void) {
-  if (webAppSdk?.showConfirm) {
-    webAppSdk.showConfirm(message, callback);
-  } else {
-    const confirmed = confirm(message);
-    callback(confirmed);
-  }
-}
-
-/**
- * Показать всплывающее окно в Telegram
- */
-export function showTelegramPopup(params: {
-  title?: string;
-  message: string;
-  buttons?: Array<{ id?: string; type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'; text: string }>;
-}, callback?: (buttonId?: string) => void) {
-  if (webAppSdk?.showPopup) {
-    webAppSdk.showPopup(params as TelegramPopupParams, callback);
-  } else {
-    alert(params.message);
-    callback?.('ok');
-  }
-}
-
-/**
- * Закрыть WebApp
- */
-export function closeTelegramWebApp() {
-  if (webAppSdk?.close) {
-    webAppSdk.close();
-  }
-}
-
-/**
- * Открыть ссылку
- */
-export function openTelegramLink(url: string) {
-  if (webAppSdk?.openLink) {
-    webAppSdk.openLink(url);
-  } else {
-    window.open(url, '_blank');
-  }
-}
-
-/**
- * Включить кнопку "Закрыть" с подтверждением
- */
-export function enableClosingConfirmation() {
-  if (webAppSdk?.enableClosingConfirmation) {
-    webAppSdk.enableClosingConfirmation();
-  }
-}
-
-/**
- * Отключить кнопку "Закрыть" с подтверждением
- */
-export function disableClosingConfirmation() {
-  if (webAppSdk?.disableClosingConfirmation) {
-    webAppSdk.disableClosingConfirmation();
-  }
-}
-
-/**
- * Вибрация (легкая)
- */
-export function hapticFeedbackLight() {
-  triggerHaptic('light');
-}
-
-/**
- * Вибрация (средняя)
- */
-export function hapticFeedbackMedium() {
-  triggerHaptic('medium');
-}
-
-/**
- * Вибрация (сильная)
- */
-export function hapticFeedbackHeavy() {
-  triggerHaptic('heavy');
-}
-
-/**
- * Вибрация успеха
- */
-export function hapticFeedbackSuccess() {
-  triggerHaptic('success');
-}
-
-/**
- * Вибрация ошибки
- */
-export function hapticFeedbackError() {
-  triggerHaptic('error');
-}
-
-/**
- * Вибрация предупреждения
- */
-export function hapticFeedbackWarning() {
-  triggerHaptic('warning');
 }

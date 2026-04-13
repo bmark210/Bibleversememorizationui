@@ -34,8 +34,8 @@ import {
   getVerseDisplayStatus,
   getVerseProgressPercent,
 } from "@/shared/verseRules/index";
+import { triggerHaptic as haptic } from "@/app/lib/haptics";
 import { getVerseCardLayoutSignature, getVerseStageVisual } from "../constants";
-import { haptic } from "../haptics";
 
 export type SwipeCardProps = {
   verse: Verse;

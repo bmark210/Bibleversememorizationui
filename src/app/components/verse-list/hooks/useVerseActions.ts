@@ -12,8 +12,8 @@ import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse, extractPromotedVerseIds } from '@/app/utils/versePatch';
 import { buildVerseDeletionFeedback } from '@/app/utils/verseXp';
+import { triggerHaptic as haptic } from '@/app/lib/haptics';
 import type { VerseListStatusFilter } from '../constants';
-import { haptic } from '../haptics';
 
 type UseVerseActionsParams = {
   telegramId?: string;
