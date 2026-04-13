@@ -375,7 +375,7 @@ body[data-theme='dark'] {
 
   html {
     font-size: var(--font-size);
-    background: var(--bg-app);
+    background: var(--bg-app) !important;
   }
 
   html,
@@ -393,7 +393,8 @@ body[data-theme='dark'] {
   }
 
   body {
-    @apply bg-bg-app text-text-primary;
+    @apply text-text-primary;
+    background-color: var(--bg-app) !important;
     font-family: var(--font-body);
     position: relative;
     min-height: 100vh;
