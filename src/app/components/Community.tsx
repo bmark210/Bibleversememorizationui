@@ -25,7 +25,7 @@ import { formatXp } from "@/shared/social/formatXp";
 
 type FriendsTab = "players" | "friends";
 
-const FRIENDS_PAGE_SIZE = 8;
+const FRIENDS_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 280;
 const COMMUNITY_OVERSCAN = 220;
 
@@ -138,17 +138,6 @@ function CommunityRowSkeleton({ isLast = false }: { isLast?: boolean }) {
   return (
     <div className={cn(isLast ? "pb-0" : "pb-2")}>
       <div className="h-[90px] animate-pulse rounded-[1.45rem] border border-border-subtle bg-bg-elevated" />
-    </div>
-  );
-}
-
-function CommunityLoadingRow() {
-  return (
-    <div className="flex justify-center py-2">
-      <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 text-[11px] font-medium text-text-muted shadow-[var(--shadow-soft)]">
-        <span className="h-2 w-2 rounded-full bg-brand-primary/80 animate-pulse" />
-        Загрузка
-      </div>
     </div>
   );
 }
@@ -625,11 +614,6 @@ export function Community({
   const playersTotal = listStates.players.total;
   const friendsTotal = listStates.friends.total;
   const canManageFriends = Boolean(telegramId);
-  const loadedItemsCount = React.useMemo(
-    () => activeState.items.reduce((total, item) => total + (item ? 1 : 0), 0),
-    [activeState.items],
-  );
-  const hasMoreRows = loadedItemsCount < activeState.total;
   const emptyStateLabel = activeSearchQuery
     ? "Ничего не найдено"
     : activeFriendsTab === "players"
@@ -644,32 +628,34 @@ export function Community({
     setFriendsSearchInput(value);
   };
 
+  // Page-aligned lazy loading: when Virtuoso reports the visible range,
+  // calculate which page offsets overlap the visible + buffer region
+  // and request any that haven't been fetched yet.
   const handleRangeChanged = React.useCallback(
-    ({ endIndex }: ListRange) => {
+    ({ startIndex, endIndex }: ListRange) => {
       const activeTabState = listStatesRef.current[activeFriendsTab];
-      const loadedCount = activeTabState.items.reduce(
-        (total, item) => total + (item ? 1 : 0),
-        0,
-      );
+      const total = activeTabState.total;
+      if (total === 0) return;
 
-      if (loadedCount < activeTabState.total && endIndex >= loadedCount - 1) {
-        void requestTabWindow(activeFriendsTab, loadedCount);
+      // Buffer: pre-fetch one extra page ahead of the visible region
+      const rangeEnd = Math.min(total - 1, endIndex + FRIENDS_PAGE_SIZE);
+      const firstPage =
+        Math.floor(Math.max(0, startIndex) / FRIENDS_PAGE_SIZE) *
+        FRIENDS_PAGE_SIZE;
+      const lastPage =
+        Math.floor(rangeEnd / FRIENDS_PAGE_SIZE) * FRIENDS_PAGE_SIZE;
+
+      for (
+        let offset = firstPage;
+        offset <= lastPage;
+        offset += FRIENDS_PAGE_SIZE
+      ) {
+        // requestTabWindow already deduplicates via loadedOffsetsRef/pendingOffsetsRef
+        void requestTabWindow(activeFriendsTab, offset);
       }
     },
     [activeFriendsTab, requestTabWindow],
   );
-
-  const handleEndReached = React.useCallback(() => {
-    const activeTabState = listStatesRef.current[activeFriendsTab];
-    const loadedCount = activeTabState.items.reduce(
-      (total, item) => total + (item ? 1 : 0),
-      0,
-    );
-
-    if (loadedCount < activeTabState.total) {
-      void requestTabWindow(activeFriendsTab, loadedCount);
-    }
-  }, [activeFriendsTab, requestTabWindow]);
 
   return (
     <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, '!pb-0')}>
@@ -684,7 +670,7 @@ export function Community({
         ) : (
           <>
             <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+              <div className="grid gap-3 grid-cols-[auto_minmax(0,1fr)] sm:items-center">
                 <div className="inline-flex w-full rounded-[1.15rem] border border-border-subtle/80 bg-bg-elevated/70 p-1 shadow-[var(--shadow-soft)] sm:w-auto">
                   {(
                     [
@@ -753,10 +739,10 @@ export function Community({
       <div className="min-h-0 flex-1 overflow-hidden pt-2 px-2 sm:p-2.5">
         {activeState.isInitialLoading && activeState.items.length === 0 ? (
           <div className="grid h-full min-h-0 content-start gap-2 overflow-y-auto pr-1">
-            {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
+            {Array.from({ length: 8 }).map((_, index) => (
               <CommunityRowSkeleton
                 key={`community-skeleton-${activeFriendsTab}-${index}`}
-                isLast={index === FRIENDS_PAGE_SIZE - 1}
+                isLast={index === 7}
               />
             ))}
           </div>
@@ -774,28 +760,20 @@ export function Community({
               ref={virtuosoRef}
               key={`${activeFriendsTab}:${activeSearchQuery}`}
               className={COMMUNITY_LIST_BASE_CLASS}
-              totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
+              totalCount={activeState.total}
               defaultItemHeight={98}
               increaseViewportBy={COMMUNITY_OVERSCAN}
               overscan={COMMUNITY_OVERSCAN}
               components={VIRTUOSO_COMPONENTS}
               scrollerRef={handleVirtuosoScrollerRef}
               computeItemKey={(index) => {
-                if (hasMoreRows && index >= loadedItemsCount) {
-                  return `${activeFriendsTab}-loader-${loadedItemsCount}`;
-                }
                 const item = activeState.items[index];
                 return item
                   ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
                   : `${activeFriendsTab}-skeleton-${index}`;
               }}
               rangeChanged={handleRangeChanged}
-              endReached={handleEndReached}
               itemContent={(index) => {
-                if (hasMoreRows && index >= loadedItemsCount) {
-                  return <CommunityLoadingRow />;
-                }
-
                 const item = activeState.items[index];
 
                 if (!item) {
