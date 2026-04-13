@@ -180,7 +180,7 @@ function CommunityListRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-[1.45rem] border border-border-subtle/70 bg-bg-elevated/85 px-3.5 py-3.5 shadow-none transition-[background-color,border-color] hover:border-brand-primary/18 hover:bg-bg-surface/90 narrow:gap-2.5 narrow:px-3 narrow:py-3 sm:gap-3.5 sm:px-4 sm:py-4",
+        "flex items-center gap-3 rounded-[1.45rem] border border-border-default/55 bg-bg-elevated px-3.5 py-3.5 shadow-[var(--shadow-soft)] transition-[background-color,border-color,box-shadow] hover:border-brand-primary/18 hover:bg-bg-surface hover:shadow-[var(--shadow-floating)] narrow:gap-2.5 narrow:px-3 narrow:py-3 sm:gap-3.5 sm:px-4 sm:py-4",
       )}
     >
       {onOpenPlayerProfile ? (

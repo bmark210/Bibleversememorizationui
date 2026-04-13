@@ -22,23 +22,9 @@ function Drawer({
   );
 }
 
-function DrawerTrigger({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
-  return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />;
-}
-
-function DrawerPortal({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
-  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />;
-}
-
-function DrawerClose({
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Close>) {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
-}
+const DrawerTrigger = DrawerPrimitive.Trigger;
+const DrawerPortal = DrawerPrimitive.Portal;
+const DrawerClose = DrawerPrimitive.Close;
 
 const DrawerOverlay = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Overlay>,
@@ -57,22 +43,26 @@ const DrawerOverlay = React.forwardRef<
   );
 });
 
-function DrawerContent({
+const DrawerContent = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(function DrawerContent({
   className,
   children,
   style,
   overlayClassName,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content> & {
-  overlayClassName?: string;
-}) {
+}, ref) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const bottomInset = contentSafeAreaInset.bottom;
 
   return (
-    <DrawerPortal data-slot="drawer-portal">
+    <DrawerPortal>
       <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
+        ref={ref}
         data-slot="drawer-content"
         className={cn(
           "group/drawer-content bg-bg-elevated fixed z-50 flex h-auto flex-col border-border-subtle text-text-primary shadow-[var(--shadow-floating)] !outline-none focus:!outline-none focus-visible:!outline-none !ring-0 focus:!ring-0 focus-visible:!ring-0",
@@ -99,7 +89,7 @@ function DrawerContent({
       </DrawerPrimitive.Content>
     </DrawerPortal>
   );
-}
+});
 
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -121,31 +111,39 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function DrawerTitle({
+const DrawerTitle = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Title>
+>(function DrawerTitle({
   className,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Title>) {
+}, ref) {
   return (
     <DrawerPrimitive.Title
+      ref={ref}
       data-slot="drawer-title"
       className={cn("[font-family:var(--font-heading)] text-xl font-semibold tracking-tight text-text-primary", className)}
       {...props}
     />
   );
-}
+});
 
-function DrawerDescription({
+const DrawerDescription = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Description>
+>(function DrawerDescription({
   className,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Description>) {
+}, ref) {
   return (
     <DrawerPrimitive.Description
+      ref={ref}
       data-slot="drawer-description"
       className={cn("text-sm leading-relaxed text-text-secondary", className)}
       {...props}
     />
   );
-}
+});
 
 export {
   Drawer,
