@@ -164,7 +164,7 @@ export function TrainingBoxHub({
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-[2fr_1fr] gap-2 rounded-[1.25rem] border border-border-subtle bg-bg-subtle p-1">
+      <div className="mt-4 grid grid-cols-[2fr_1fr] gap-2 rounded-[1.25rem] border border-border-subtle bg-bg-subtle p-1 pb-1.5">
         {[
           { id: "core" as const, label: "Практика", icon: Dumbbell },
           { id: "anchor" as const, label: "Игры", icon: Gamepad2 },

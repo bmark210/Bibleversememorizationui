@@ -15,9 +15,16 @@ function Drawer({
   return (
     <DrawerPrimitive.Root
       data-slot="drawer"
+      {...props}
+      // These MUST come AFTER {...props} so callers cannot override them.
+      // Prevents vaul from touching body styles:
+      //  • shouldScaleBackground — no scale-down animation on the wrapper
+      //  • setBackgroundColorOnScale — no body.style.background = 'black'
+      //  • noBodyStyles — disables vaul's Safari position:fixed body hack
+      //    that collapses the body and hides the html::before gradient
       shouldScaleBackground={false}
       setBackgroundColorOnScale={false}
-      {...props}
+      noBodyStyles
     />
   );
 }
