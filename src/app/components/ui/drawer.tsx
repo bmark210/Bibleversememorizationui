@@ -72,7 +72,7 @@ const DrawerContent = React.forwardRef<
         ref={ref}
         data-slot="drawer-content"
         className={cn(
-          "group/drawer-content bg-bg-elevated fixed z-50 flex h-auto flex-col border-border-subtle text-text-primary shadow-[var(--shadow-floating)] !outline-none focus:!outline-none focus-visible:!outline-none !ring-0 focus:!ring-0 focus-visible:!ring-0",
+          "group/drawer-content bg-bg-elevated fixed z-50 flex h-auto flex-col border-border-subtle text-text-primary shadow-[var(--shadow-floating)] !outline-none",
           "data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] !data-[vaul-drawer-direction=top]:rounded-b-xl data-[vaul-drawer-direction=top]:border-b",
           "data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] !data-[vaul-drawer-direction=bottom]:rounded-t-[2rem] data-[vaul-drawer-direction=bottom]:border-t",
           "data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=right]:sm:max-w-sm",
