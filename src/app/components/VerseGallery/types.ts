@@ -20,6 +20,29 @@ export type VerseGallerySourceMode = "catalog" | "my";
 export type Rating = TrainingModeRating;
 export type TrainingSubsetFilter = "learning" | "review" | "catalog";
 export type ModeId = TrainingModeId;
+export type TrainingContactToastPayload = {
+  id: number;
+  reference: string;
+  tone: "positive" | "negative" | "neutral";
+  message: string;
+  hint?: string;
+};
+
+export type TrainingCompletionToastCardPayload = {
+  id: number;
+  reference: string;
+  status: "LEARNING" | "REVIEW" | "MASTERED";
+  milestoneKind:
+    | "learning_start"
+    | "learning_to_review"
+    | "review_progress"
+    | "review_to_mastered";
+  nextReviewHint: string | null;
+  beforeProgressPercent: number;
+  afterProgressPercent: number;
+  masteryLevel: number;
+  repetitions: number;
+};
 
 export type VersePreviewOverride = Partial<
   Pick<Verse, "status" | "flow" | "masteryLevel" | "repetitions">
