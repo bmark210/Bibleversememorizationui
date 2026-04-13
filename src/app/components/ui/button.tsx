@@ -76,6 +76,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         ref={ref}
         data-slot="button"
+        data-haptic-managed="true"
         className={cn(
           buttonVariants({ variant, size, className }),
           "focus:outline-none focus:ring-offset-0"

@@ -375,12 +375,35 @@ body[data-theme='dark'] {
 
   html {
     font-size: var(--font-size);
+    /* Pinned with !important so neither vaul, Radix scroll-lock, nor Telegram
+       WebApp inline styles can reveal a black viewport behind the app. */
     background: var(--bg-app) !important;
   }
 
   html,
   body {
     min-height: 100%;
+  }
+
+  /* ── Hero gradient background ──────────────────────────────────────────
+     Lives on html::before (NOT body::before) so it is immune to any body
+     style mutations by third-party libraries:
+       • vaul sets body { position:fixed; top:-Npx } on Safari scroll-lock
+       • react-remove-scroll sets body { overflow:hidden !important }
+       • both can collapse/clip a body::before pseudo
+     html::before with position:fixed always spans the full viewport. */
+  html::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: transparent;
+    background-image:
+      radial-gradient(circle at 14% 18%, var(--hero-glow-secondary), transparent 34%),
+      radial-gradient(circle at 84% 0%, var(--hero-glow-primary), transparent 38%),
+      radial-gradient(circle at 80% 72%, var(--hero-glow-wine), transparent 32%),
+      linear-gradient(180deg, rgba(var(--bg-surface-rgb), 0.92) 0%, var(--bg-app) 34%, var(--bg-subtle) 100%);
   }
 
   .boot-progress-indicator {
@@ -394,28 +417,21 @@ body[data-theme='dark'] {
 
   body {
     @apply text-text-primary;
-    background-color: var(--bg-app) !important;
+    /* !important overrides vaul inline style.background = 'black' */
+    background: transparent !important;
     font-family: var(--font-body);
     position: relative;
     min-height: 100vh;
     letter-spacing: -0.01em;
   }
 
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-    background: transparent;
-    background-image:
-      radial-gradient(circle at 14% 18%, var(--hero-glow-secondary), transparent 34%),
-      radial-gradient(circle at 84% 0%, var(--hero-glow-primary), transparent 38%),
-      radial-gradient(circle at 80% 72%, var(--hero-glow-wine), transparent 32%),
-      linear-gradient(180deg, rgba(var(--bg-surface-rgb), 0.92) 0%, var(--bg-app) 34%, var(--bg-subtle) 100%);
-    pointer-events: none;
+  /* Override any inline styles vaul/react-remove-scroll set on body during
+     drawer open/close transitions. Without these, a black flash appears
+     because body.style.background gets set to 'black' by vaul, and
+     body.style.overflow gets set to 'hidden' by react-remove-scroll which
+     clips the body area, revealing the html bg underneath. */
+  body[data-scroll-locked] {
+    background: transparent !important;
   }
 
   :root[data-app-booting='true'] [class*='backdrop-blur'],

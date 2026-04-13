@@ -1,9 +1,18 @@
 'use client'
 
 import { create } from 'zustand'
+import { triggerHaptic } from '@/app/lib/haptics'
 import type { DirectLaunchVerse } from '@/app/components/Training/types'
 import type { AppRootPage, PendingTextBoxReturn } from '@/app/domain/appPages'
 import type { TrainingBoxScope } from '@/app/types/textBox'
+
+export type ScreenStoreSnapshot = {
+  active: AppRootPage
+  history: AppRootPage[]
+  trainingDirectLaunch: DirectLaunchVerse | null
+  trainingBoxScope: TrainingBoxScope | null
+  pendingTextBoxReturn: PendingTextBoxReturn | null
+}
 
 interface ScreenStore {
   active: AppRootPage
@@ -21,6 +30,21 @@ interface ScreenStore {
   setTrainingBoxScope: (scope: TrainingBoxScope | null) => void
   onDirectLaunchExit: (launch: DirectLaunchVerse) => void
   onTextBoxReturnHandled: () => void
+  replaceSnapshot: (snapshot: ScreenStoreSnapshot) => void
+  getSnapshot: () => ScreenStoreSnapshot
+}
+
+function buildSnapshot(state: Pick<
+  ScreenStore,
+  'active' | 'history' | 'trainingDirectLaunch' | 'trainingBoxScope' | 'pendingTextBoxReturn'
+>): ScreenStoreSnapshot {
+  return {
+    active: state.active,
+    history: [...state.history],
+    trainingDirectLaunch: state.trainingDirectLaunch,
+    trainingBoxScope: state.trainingBoxScope,
+    pendingTextBoxReturn: state.pendingTextBoxReturn,
+  }
 }
 
 export const useScreenStore = create<ScreenStore>((set, get) => ({
@@ -33,6 +57,7 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
   go: (screen) =>
     set((s) => {
       if (s.active === screen && s.history.length === 0) return s
+      triggerHaptic('medium')
       return {
         active: screen,
         history: [],
@@ -45,12 +70,14 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
   push: (screen) =>
     set((s) => {
       if (s.active === screen) return s
+      triggerHaptic('medium')
       return { history: [...s.history, s.active], active: screen }
     }),
 
   back: () =>
     set((s) => {
       if (s.history.length === 0) return s
+      triggerHaptic('light')
       return {
         active: s.history.at(-1) ?? 'dashboard',
         history: s.history.slice(0, -1),
@@ -125,4 +152,15 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
   },
 
   onTextBoxReturnHandled: () => set({ pendingTextBoxReturn: null }),
+
+  replaceSnapshot: (snapshot) =>
+    set({
+      active: snapshot.active,
+      history: [...snapshot.history],
+      trainingDirectLaunch: snapshot.trainingDirectLaunch,
+      trainingBoxScope: snapshot.trainingBoxScope,
+      pendingTextBoxReturn: snapshot.pendingTextBoxReturn,
+    }),
+
+  getSnapshot: () => buildSnapshot(get()),
 }))

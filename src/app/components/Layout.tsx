@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { BookOpen, Dumbbell, LayoutDashboard, User, Users } from "lucide-react";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
-import { triggerHaptic } from "../lib/haptics";
 import { useAppViewportStore } from "../stores/appViewportStore";
 import { useTelegramUiStore } from "../stores/telegramUiStore";
 import { useScreenStore } from "../stores/screenStore";
@@ -13,6 +12,7 @@ import type { AppRootPage } from "@/app/domain/appPages";
 interface LayoutProps {
   children: React.ReactNode;
   onNavigateIntent?: (page: string) => void;
+  onNavigate?: (page: AppRootPage) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
   contentMode?: "scroll" | "fit" | "fit-strict";
@@ -37,11 +37,12 @@ const DEFAULT_NAV_ITEMS = [
 export function Layout({
   children,
   onNavigateIntent,
+  onNavigate,
   isContentReady = false,
   hideChrome = false,
   contentMode = "scroll",
 }: LayoutProps) {
-  const { active: currentPage, go } = useScreenStore();
+  const currentPage = useScreenStore((state) => state.active);
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const isTelegramFullscreen = useTelegramUiStore(
@@ -115,13 +116,11 @@ export function Layout({
   }, [bottomInset, hideAppChrome, isKeyboardOpen]);
 
   const handleNavigateClick = (page: string) => {
-    if (page === currentPage) {
-      triggerHaptic("light");
+    const nextPage = page as AppRootPage;
+    if (nextPage === currentPage) {
       return;
     }
-
-    triggerHaptic("medium");
-    go(page as AppRootPage);
+    onNavigate?.(nextPage);
   };
 
   const handleNavigateIntent = (page: string) => {
@@ -173,6 +172,7 @@ export function Layout({
                 <button
                   type="button"
                   key={item.id}
+                  data-haptic-managed="true"
                   aria-current={isActive ? "page" : undefined}
                   onPointerEnter={() => handleNavigateIntent(item.id)}
                   onFocus={() => handleNavigateIntent(item.id)}
@@ -253,6 +253,7 @@ export function Layout({
               <button
                 type="button"
                 key={item.id}
+                data-haptic-managed="true"
                 aria-current={isActive ? "page" : undefined}
                 onPointerEnter={() => handleNavigateIntent(item.id)}
                 onFocus={() => handleNavigateIntent(item.id)}

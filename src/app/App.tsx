@@ -13,8 +13,10 @@ import {
 import type { AppRootPage, PlayerProfilePreview } from "@/app/domain/appPages";
 import { useAppBootstrap } from "@/app/hooks/app/useAppBootstrap";
 import { useAppDataRefetchEffects } from "@/app/hooks/app/useAppDataRefetchEffects";
+import { useAppNavigation } from "@/app/hooks/app/useAppNavigation";
 import { useAppTheme } from "@/app/hooks/app/useAppTheme";
 import { useDashboardData } from "@/app/hooks/app/useDashboardData";
+import { useGlobalHaptics } from "@/app/hooks/app/useGlobalHaptics";
 import { useAppViewportSync } from "@/app/hooks/app/useAppViewportSync";
 import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
@@ -96,19 +98,22 @@ export default function App({ onInitialContentReady }: AppProps) {
     useState(false);
 
   const { theme, handleToggleTheme } = useAppTheme();
-
   const activeScreen = useScreenStore((s) => s.active);
-  const canGoBack = useScreenStore((s) => s.history.length > 0);
   const trainingDirectLaunch = useScreenStore((s) => s.trainingDirectLaunch);
   const trainingBoxScope = useScreenStore((s) => s.trainingBoxScope);
   const pendingTextBoxReturn = useScreenStore((s) => s.pendingTextBoxReturn);
-  const push = useScreenStore((s) => s.push);
-  const back = useScreenStore((s) => s.back);
-  const navigateToTrainingWithVerse = useScreenStore((s) => s.navigateToTrainingWithVerse);
-  const navigateToTrainingBox = useScreenStore((s) => s.navigateToTrainingBox);
   const setTrainingBoxScope = useScreenStore((s) => s.setTrainingBoxScope);
   const onDirectLaunchExit = useScreenStore((s) => s.onDirectLaunchExit);
   const onTextBoxReturnHandled = useScreenStore((s) => s.onTextBoxReturnHandled);
+
+  const {
+    canGoBack,
+    goBack,
+    goToRootPage,
+    pushPage,
+    openTrainingWithVerse,
+    openTrainingBox,
+  } = useAppNavigation();
 
   const availableRootPages = ROOT_PAGES;
 
@@ -140,6 +145,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useTelegramWebAppSetup();
   useAppViewportSync();
+  useGlobalHaptics();
 
   useAppBootstrap({
     setTelegramId,
@@ -181,7 +187,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useTelegramBackButton({
     enabled: canGoBack,
-    onBack: back,
+    onBack: goBack,
     priority: 10,
   });
 
@@ -254,8 +260,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const handleOpenTraining = useCallback(() => {
-    push("training");
-  }, [push]);
+    pushPage("training");
+  }, [pushPage]);
 
   const prefetchRootPage = useCallback(async (page: AppRootPage) => {
     if (!availableRootPages.includes(page)) {
@@ -351,6 +357,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         className="h-dvh transition-colors"
       >
         <Layout
+          onNavigate={goToRootPage}
           onNavigateIntent={handleRootPagePrefetchIntent}
           isContentReady={!isBootstrapping}
           hideChrome={activeScreen === "training" && isTrainingSessionFullscreen}
@@ -405,8 +412,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                   onReopenTextBoxHandled={onTextBoxReturnHandled}
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
-                  onNavigateToTraining={navigateToTrainingWithVerse}
-                  onNavigateToTrainingBox={navigateToTrainingBox}
+                  onNavigateToTraining={openTrainingWithVerse}
+                  onNavigateToTrainingBox={openTrainingBox}
                   telegramId={telegramId}
                 />
               </section>

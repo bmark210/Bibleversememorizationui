@@ -6,7 +6,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "./utils";
 
 const OVERLAY_CHROME =
-  "fixed inset-0 z-[80] bg-black/10 dark:bg-black/24 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0";
+  "fixed inset-0 z-[80] bg-overlay-scrim data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0";
 
 function Dialog({
   ...props
