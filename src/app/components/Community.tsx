@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Search,
-  UserMinus,
-  UserPlus,
-} from "lucide-react";
+import { Search, UserMinus, UserPlus } from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import type { domain_FriendPlayerListItem } from "@/api/services/friends";
 import {
@@ -19,9 +15,7 @@ import { AppSurface } from "./ui/AppSurface";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import {
-  PAGE_COMPACT_PADDING,
-} from "./ui/responsiveTokens";
+import { PAGE_COMPACT_PADDING } from "./ui/responsiveTokens";
 import { cn } from "./ui/utils";
 import {
   mergeCommunityPageWindow,
@@ -36,7 +30,7 @@ const SEARCH_DEBOUNCE_MS = 280;
 const COMMUNITY_OVERSCAN = 220;
 
 const PAGE_SHELL =
-  "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible";
+  "mx-auto grid gap-3 grid-rows-[auto_minmax(0,1fr)] sm:items-center h-full min-h-0 w-full max-w-5xl gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible";
 
 const ROW_ACTION_BUTTON =
   "h-10 w-10 shrink-0 rounded-full p-0 narrow:h-9 narrow:w-9";
@@ -75,7 +69,13 @@ const CommunityVirtuosoList = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(function CommunityVirtuosoList({ className, ...props }, ref) {
-  return <div ref={ref} className={cn("grid content-start gap-2", className)} {...props} />;
+  return (
+    <div
+      ref={ref}
+      className={cn("grid content-start gap-2", className)}
+      {...props}
+    />
+  );
 });
 
 function getInitials(name: string) {
@@ -292,6 +292,10 @@ function CommunityListRow({
   );
 }
 
+// Stable reference — must NOT be defined inline inside the component or
+// Virtuoso will remount the entire list on every render (→ stack overflow).
+const VIRTUOSO_COMPONENTS = { List: CommunityVirtuosoList } as const;
+
 export function Community({
   telegramId = null,
   onFriendsChanged,
@@ -322,6 +326,51 @@ export function Community({
     friends: 0,
   });
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
+
+  // ── Scroll shadow (mask-image on Virtuoso's scroller) ────────────────
+  // Uses the same technique as ScrollShadowContainer with shadowStyle="mask":
+  // CSS mask-image fades out the content itself at scroll edges — no
+  // coloured overlay, works on any background, colour-agnostic.
+  const SHADOW_SIZE = 56;
+  const MASK_SCROLLED =
+    `linear-gradient(to bottom, transparent 0px, black ${SHADOW_SIZE}px, black 100%)`;
+  const listScrollerDomRef = React.useRef<HTMLElement | null>(null);
+
+  const applyScrollMask = React.useCallback((el: HTMLElement) => {
+    const scrolled = el.scrollTop > 2;
+    const mask = scrolled ? MASK_SCROLLED : "";
+    if (el.style.maskImage !== mask) {
+      el.style.maskImage = mask;
+      el.style.webkitMaskImage = mask;
+    }
+  }, [MASK_SCROLLED]);
+
+  const handleScrollForShadow = React.useCallback(() => {
+    const el = listScrollerDomRef.current;
+    if (el) applyScrollMask(el);
+  }, [applyScrollMask]);
+
+  const handleVirtuosoScrollerRef = React.useCallback(
+    (ref: HTMLElement | Window | null) => {
+      const prev = listScrollerDomRef.current;
+      if (prev) {
+        prev.removeEventListener("scroll", handleScrollForShadow);
+        prev.style.maskImage = "";
+        prev.style.webkitMaskImage = "";
+      }
+      if (ref instanceof HTMLElement) {
+        listScrollerDomRef.current = ref;
+        applyScrollMask(ref);
+        ref.addEventListener("scroll", handleScrollForShadow, {
+          passive: true,
+        });
+      } else {
+        listScrollerDomRef.current = null;
+      }
+    },
+    [handleScrollForShadow, applyScrollMask],
+  );
+  // ────────────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     listStatesRef.current = listStates;
@@ -380,8 +429,7 @@ export function Community({
           error: null,
           isInitialLoading:
             options?.initial === true && previous[tab].items.length === 0,
-          isLoadingMore:
-            options?.initial === true ? false : true,
+          isLoadingMore: options?.initial === true ? false : true,
         },
       }));
 
@@ -412,8 +460,7 @@ export function Community({
               total: Math.max(0, nextPage.total ?? previous[tab].total),
               error: null,
               isInitialLoading: false,
-              isLoadingMore:
-                pendingOffsetsRef.current[tab].size > 1,
+              isLoadingMore: pendingOffsetsRef.current[tab].size > 1,
             },
           }));
         });
@@ -434,8 +481,7 @@ export function Community({
             ...previous[tab],
             error: message,
             isInitialLoading: false,
-            isLoadingMore:
-              pendingOffsetsRef.current[tab].size > 1,
+            isLoadingMore: pendingOffsetsRef.current[tab].size > 1,
           },
         }));
         return null;
@@ -501,6 +547,13 @@ export function Community({
   }, [friendsRefreshVersion, resetAndPrimeTab, telegramId]);
 
   React.useEffect(() => {
+    // Reset mask when switching tabs / searching — Virtuoso scrolls to top
+    // via scrollToIndex, and the scroller ref callback will re-apply the mask.
+    const el = listScrollerDomRef.current;
+    if (el) {
+      el.style.maskImage = "";
+      el.style.webkitMaskImage = "";
+    }
     virtuosoRef.current?.scrollToIndex({
       index: 0,
       align: "start",
@@ -606,23 +659,20 @@ export function Community({
     [activeFriendsTab, requestTabWindow],
   );
 
-  const handleEndReached = React.useCallback(
-    () => {
-      const activeTabState = listStatesRef.current[activeFriendsTab];
-      const loadedCount = activeTabState.items.reduce(
-        (total, item) => total + (item ? 1 : 0),
-        0,
-      );
+  const handleEndReached = React.useCallback(() => {
+    const activeTabState = listStatesRef.current[activeFriendsTab];
+    const loadedCount = activeTabState.items.reduce(
+      (total, item) => total + (item ? 1 : 0),
+      0,
+    );
 
-      if (loadedCount < activeTabState.total) {
-        void requestTabWindow(activeFriendsTab, loadedCount);
-      }
-    },
-    [activeFriendsTab, requestTabWindow],
-  );
+    if (loadedCount < activeTabState.total) {
+      void requestTabWindow(activeFriendsTab, loadedCount);
+    }
+  }, [activeFriendsTab, requestTabWindow]);
 
   return (
-    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, '!pb-0')}>
       <AppSurface
         data-tour="profile-friends"
         className="flex h-full min-h-0 flex-1 flex-col gap-3 short-phone:h-auto"
@@ -634,24 +684,22 @@ export function Community({
         ) : (
           <>
             <div className="space-y-3">
-              <h1 className="text-[15px] font-semibold tracking-tight text-text-primary sm:text-base">
-                Сообщество
-              </h1>
-
               <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
                 <div className="inline-flex w-full rounded-[1.15rem] border border-border-subtle/80 bg-bg-elevated/70 p-1 shadow-[var(--shadow-soft)] sm:w-auto">
-                  {([
-                    {
-                      key: "friends",
-                      label: "Мои друзья",
-                      count: friendsTotal,
-                    },
-                    {
-                      key: "players",
-                      label: "Игроки",
-                      count: playersTotal,
-                    },
-                  ] as const).map((tab) => {
+                  {(
+                    [
+                      {
+                        key: "friends",
+                        label: "Мои друзья",
+                        count: friendsTotal,
+                      },
+                      {
+                        key: "players",
+                        label: "Игроки",
+                        count: playersTotal,
+                      },
+                    ] as const
+                  ).map((tab) => {
                     const isActive = activeFriendsTab === tab.key;
 
                     return (
@@ -686,7 +734,9 @@ export function Community({
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                   <Input
                     value={activeSearchInput}
-                    onChange={(event) => handleSearchInputChange(event.target.value)}
+                    onChange={(event) =>
+                      handleSearchInputChange(event.target.value)
+                    }
                     placeholder={
                       activeFriendsTab === "players"
                         ? "Поиск игроков"
@@ -697,87 +747,91 @@ export function Community({
                 </div>
               </div>
             </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden rounded-[1.35rem] border border-border-subtle/70 bg-bg-surface/35 p-2 sm:p-2.5">
-              {activeState.isInitialLoading && activeState.items.length === 0 ? (
-                <div className="grid h-full min-h-0 content-start gap-2 overflow-y-auto pr-1">
-                  {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
-                    <CommunityRowSkeleton
-                      key={`community-skeleton-${activeFriendsTab}-${index}`}
-                      isLast={index === FRIENDS_PAGE_SIZE - 1}
-                    />
-                  ))}
-                </div>
-              ) : activeState.error ? (
-                <div className="rounded-[1.2rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
-                  {activeState.error}
-                </div>
-              ) : activeState.total === 0 ? (
-                <div className="flex h-full min-h-[14rem] items-center justify-center rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated/70 px-4 py-6 text-center text-sm text-text-secondary">
-                  {emptyStateLabel}
-                </div>
-              ) : (
-                <div className="h-full min-h-0">
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    key={`${activeFriendsTab}:${activeSearchQuery}`}
-                    className={COMMUNITY_LIST_BASE_CLASS}
-                    totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
-                    defaultItemHeight={98}
-                    increaseViewportBy={COMMUNITY_OVERSCAN}
-                    overscan={COMMUNITY_OVERSCAN}
-                    components={{ List: CommunityVirtuosoList }}
-                    computeItemKey={(index) => {
-                      if (hasMoreRows && index >= loadedItemsCount) {
-                        return `${activeFriendsTab}-loader-${loadedItemsCount}`;
-                      }
-                      const item = activeState.items[index];
-                      return item
-                        ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
-                        : `${activeFriendsTab}-skeleton-${index}`;
-                    }}
-                    rangeChanged={handleRangeChanged}
-                    endReached={handleEndReached}
-                    itemContent={(index) => {
-                      if (hasMoreRows && index >= loadedItemsCount) {
-                        return <CommunityLoadingRow />;
-                      }
-
-                      const item = activeState.items[index];
-
-                      if (!item) {
-                        return (
-                          <CommunityRowSkeleton
-                            isLast={index === activeState.total - 1}
-                          />
-                        );
-                      }
-
-                      const rowId = String(item.telegramId ?? "");
-                      const isMutationPending =
-                        pendingMutationByTelegramId[rowId] === true;
-
-                      return (
-                        <div className={cn(index === activeState.total - 1 ? "pb-0" : "pb-2")}>
-                          <CommunityListRow
-                            item={item}
-                            activeFriendsTab={activeFriendsTab}
-                            isMutationPending={isMutationPending}
-                            onOpenPlayerProfile={onOpenPlayerProfile}
-                            onToggleFriend={(nextItem) => {
-                              void handleToggleFriend(nextItem);
-                            }}
-                          />
-                        </div>
-                      );
-                    }}
-                  />
-                </div>
-              )}
-            </div>
           </>
         )}
       </AppSurface>
+      <div className="min-h-0 flex-1 overflow-hidden pt-2 px-2 sm:p-2.5">
+        {activeState.isInitialLoading && activeState.items.length === 0 ? (
+          <div className="grid h-full min-h-0 content-start gap-2 overflow-y-auto pr-1">
+            {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
+              <CommunityRowSkeleton
+                key={`community-skeleton-${activeFriendsTab}-${index}`}
+                isLast={index === FRIENDS_PAGE_SIZE - 1}
+              />
+            ))}
+          </div>
+        ) : activeState.error ? (
+          <div className="rounded-[1.2rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
+            {activeState.error}
+          </div>
+        ) : activeState.total === 0 ? (
+          <div className="flex h-full min-h-[14rem] items-center justify-center rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated/70 px-4 py-6 text-center text-sm text-text-secondary">
+            {emptyStateLabel}
+          </div>
+        ) : (
+          <div className="h-full min-h-0">
+            <Virtuoso
+              ref={virtuosoRef}
+              key={`${activeFriendsTab}:${activeSearchQuery}`}
+              className={COMMUNITY_LIST_BASE_CLASS}
+              totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
+              defaultItemHeight={98}
+              increaseViewportBy={COMMUNITY_OVERSCAN}
+              overscan={COMMUNITY_OVERSCAN}
+              components={VIRTUOSO_COMPONENTS}
+              scrollerRef={handleVirtuosoScrollerRef}
+              computeItemKey={(index) => {
+                if (hasMoreRows && index >= loadedItemsCount) {
+                  return `${activeFriendsTab}-loader-${loadedItemsCount}`;
+                }
+                const item = activeState.items[index];
+                return item
+                  ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
+                  : `${activeFriendsTab}-skeleton-${index}`;
+              }}
+              rangeChanged={handleRangeChanged}
+              endReached={handleEndReached}
+              itemContent={(index) => {
+                if (hasMoreRows && index >= loadedItemsCount) {
+                  return <CommunityLoadingRow />;
+                }
+
+                const item = activeState.items[index];
+
+                if (!item) {
+                  return (
+                    <CommunityRowSkeleton
+                      isLast={index === activeState.total - 1}
+                    />
+                  );
+                }
+
+                const rowId = String(item.telegramId ?? "");
+                const isMutationPending =
+                  pendingMutationByTelegramId[rowId] === true;
+
+                return (
+                  <div
+                    className={cn(
+                      index === activeState.total - 1 ? "pb-4" : "pb-0",
+                    )}
+                  >
+                    <CommunityListRow
+                      item={item}
+                      activeFriendsTab={activeFriendsTab}
+                      isMutationPending={isMutationPending}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
+                      onToggleFriend={(nextItem) => {
+                        void handleToggleFriend(nextItem);
+                      }}
+                    />
+                  </div>
+                );
+              }}
+            />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

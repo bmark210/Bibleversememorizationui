@@ -103,12 +103,7 @@ export function Profile({
       </AppSurface>
 
       {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
-      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-        <div className={cn(SECTION_LABEL, "mb-2 mt-2")}>Настройки</div>
-
-        <div className="h-full grid grid-rows-[1fr_1fr] gap-3">
-
-          {/* Theme row */}
+      <div className="flex-[2] grid grid-rows-[1fr_1fr] gap-3 overflow-hidden">
           <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-2">
             <div className="flex items-center gap-3.5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
@@ -162,9 +157,7 @@ export function Profile({
               })}
             </div>
           </div>
-
-        </div>
-      </AppSurface>
+      </div>
 
       {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
       <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
