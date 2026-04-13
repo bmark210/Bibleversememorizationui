@@ -292,6 +292,10 @@ function CommunityListRow({
   );
 }
 
+// Stable reference — must NOT be defined inline inside the component or
+// Virtuoso will remount the entire list on every render (→ stack overflow).
+const VIRTUOSO_COMPONENTS = { List: CommunityVirtuosoList } as const;
+
 export function Community({
   telegramId = null,
   onFriendsChanged,
@@ -322,6 +326,51 @@ export function Community({
     friends: 0,
   });
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
+
+  // ── Scroll shadow (mask-image on Virtuoso's scroller) ────────────────
+  // Uses the same technique as ScrollShadowContainer with shadowStyle="mask":
+  // CSS mask-image fades out the content itself at scroll edges — no
+  // coloured overlay, works on any background, colour-agnostic.
+  const SHADOW_SIZE = 56;
+  const MASK_SCROLLED =
+    `linear-gradient(to bottom, transparent 0px, black ${SHADOW_SIZE}px, black 100%)`;
+  const listScrollerDomRef = React.useRef<HTMLElement | null>(null);
+
+  const applyScrollMask = React.useCallback((el: HTMLElement) => {
+    const scrolled = el.scrollTop > 2;
+    const mask = scrolled ? MASK_SCROLLED : "";
+    if (el.style.maskImage !== mask) {
+      el.style.maskImage = mask;
+      el.style.webkitMaskImage = mask;
+    }
+  }, [MASK_SCROLLED]);
+
+  const handleScrollForShadow = React.useCallback(() => {
+    const el = listScrollerDomRef.current;
+    if (el) applyScrollMask(el);
+  }, [applyScrollMask]);
+
+  const handleVirtuosoScrollerRef = React.useCallback(
+    (ref: HTMLElement | Window | null) => {
+      const prev = listScrollerDomRef.current;
+      if (prev) {
+        prev.removeEventListener("scroll", handleScrollForShadow);
+        prev.style.maskImage = "";
+        prev.style.webkitMaskImage = "";
+      }
+      if (ref instanceof HTMLElement) {
+        listScrollerDomRef.current = ref;
+        applyScrollMask(ref);
+        ref.addEventListener("scroll", handleScrollForShadow, {
+          passive: true,
+        });
+      } else {
+        listScrollerDomRef.current = null;
+      }
+    },
+    [handleScrollForShadow, applyScrollMask],
+  );
+  // ────────────────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     listStatesRef.current = listStates;
@@ -498,6 +547,13 @@ export function Community({
   }, [friendsRefreshVersion, resetAndPrimeTab, telegramId]);
 
   React.useEffect(() => {
+    // Reset mask when switching tabs / searching — Virtuoso scrolls to top
+    // via scrollToIndex, and the scroller ref callback will re-apply the mask.
+    const el = listScrollerDomRef.current;
+    if (el) {
+      el.style.maskImage = "";
+      el.style.webkitMaskImage = "";
+    }
     virtuosoRef.current?.scrollToIndex({
       index: 0,
       align: "start",
@@ -722,7 +778,8 @@ export function Community({
               defaultItemHeight={98}
               increaseViewportBy={COMMUNITY_OVERSCAN}
               overscan={COMMUNITY_OVERSCAN}
-              components={{ List: CommunityVirtuosoList }}
+              components={VIRTUOSO_COMPONENTS}
+              scrollerRef={handleVirtuosoScrollerRef}
               computeItemKey={(index) => {
                 if (hasMoreRows && index >= loadedItemsCount) {
                   return `${activeFriendsTab}-loader-${loadedItemsCount}`;
@@ -756,7 +813,7 @@ export function Community({
                 return (
                   <div
                     className={cn(
-                      index === activeState.total - 1 ? "pb-0" : "pb-2",
+                      index === activeState.total - 1 ? "pb-4" : "pb-0",
                     )}
                   >
                     <CommunityListRow
