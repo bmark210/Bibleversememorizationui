@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
@@ -34,6 +35,7 @@ import { GalleryFooter } from "./components/GalleryFooter";
 import { GallerySwipeSlide } from "./components/GallerySwipeSlide";
 import { GalleryToasterPortal } from "./components/GalleryToasterPortal";
 import { SwipeHint } from "./components/SwipeHint";
+import { VerseAnnotationDrawer } from "./components/VerseAnnotationDrawer";
 import { VersePreviewCard } from "./components/VersePreviewCard";
 import { useGalleryAux } from "./hooks/useGalleryAux";
 import { useEventCallback } from "./hooks/useEventCallback";
@@ -46,6 +48,7 @@ import {
   haptic,
   clamp,
 } from "./utils";
+import { fetchVerseAnnotation } from "@/api/services/annotationService";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
 import {
   isCatalogGalleryMode,
@@ -57,6 +60,13 @@ import type { VerseGalleryProps } from "./types";
 type PreviewStatusMutation = {
   nextStatus: VerseStatus;
 };
+
+type AnnotationDrawerState = {
+  verseId: string;
+  reference: string;
+  annotation: Verse["annotation"];
+  isLoading: boolean;
+} | null;
 
 function normalizeSelectedTagSlugs(
   activeTagSlugs: Iterable<string> | null | undefined
@@ -157,6 +167,8 @@ export function VerseGallery({
     setIsDeleteDialogOpen,
   } = useGalleryAux();
 
+  const [annotationDrawer, setAnnotationDrawer] = useState<AnnotationDrawerState>(null);
+
   const {
     activeIndex,
     direction,
@@ -215,7 +227,8 @@ export function VerseGallery({
   const isCatalogOwnedPreview =
     previewStatus != null &&
     isCatalogGalleryOwnedVerse(sourceMode, previewStatus);
-  const isBlockingOverlayOpen = isDeleteDialogOpen || isOverlayOpen;
+  const isAnnotationDrawerOpen = annotationDrawer !== null;
+  const isBlockingOverlayOpen = isDeleteDialogOpen || isOverlayOpen || isAnnotationDrawerOpen;
   const previewDisplayTotal = useMemo(
     () => Math.max(previewTotalCount, verses.length, 1),
     [previewTotalCount, verses.length]
@@ -374,7 +387,42 @@ export function VerseGallery({
     setIsDeleteDialogOpen(false);
   });
 
+  const handleOpenAnnotation = useEventCallback((verse: Verse) => {
+    const alreadyHas = Boolean(verse.annotation);
+    setAnnotationDrawer({
+      verseId: verse.externalVerseId,
+      reference: verse.reference,
+      annotation: verse.annotation ?? null,
+      isLoading: !alreadyHas,
+    });
+
+    if (!alreadyHas) {
+      fetchVerseAnnotation(verse.externalVerseId)
+        .then((annotation) => {
+          // Cache on the verse object so re-opens are instant
+          verse.annotation = annotation;
+          setAnnotationDrawer((prev) =>
+            prev?.verseId === verse.externalVerseId
+              ? { ...prev, annotation, isLoading: false }
+              : prev,
+          );
+        })
+        .catch(() => {
+          setAnnotationDrawer((prev) =>
+            prev?.verseId === verse.externalVerseId
+              ? { ...prev, isLoading: false }
+              : prev,
+          );
+        });
+    }
+  });
+
   const closeActiveLayer = useEventCallback(() => {
+    if (isAnnotationDrawerOpen) {
+      setAnnotationDrawer(null);
+      return true;
+    }
+
     if (isDeleteDialogOpen) {
       setIsDeleteDialogOpen(false);
       return true;
@@ -523,6 +571,7 @@ export function VerseGallery({
               onOpenTags={handleOpenTagsDrawer}
               onOpenOwners={handleOpenOwnersDrawer}
               onEditQueuePosition={onEditQueuePosition}
+              onOpenAnnotation={handleOpenAnnotation}
               onVerticalSwipeStep={
                 isFocusMode && !isActionPending && !isBlockingOverlayOpen
                   ? handleFocusModeVerticalSwipe
@@ -588,6 +637,14 @@ export function VerseGallery({
         verse={previewActiveVerse}
         open={isVerseProgressDrawerOpen}
         onOpenChange={setIsVerseProgressDrawerOpen}
+      />
+
+      <VerseAnnotationDrawer
+        open={isAnnotationDrawerOpen}
+        reference={annotationDrawer?.reference ?? ""}
+        annotation={annotationDrawer?.annotation}
+        isLoading={annotationDrawer?.isLoading ?? false}
+        onOpenChange={(open) => { if (!open) setAnnotationDrawer(null); }}
       />
     </>
   );

@@ -4,6 +4,7 @@ import type { domain_FlashcardSessionInput } from "@/api/models/domain_Flashcard
 import type { domain_FlashcardSessionResult } from "@/api/models/domain_FlashcardSessionResult";
 import { TextBoxesService } from "@/api/services/TextBoxesService";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import { mapUserVerseToAppVerse } from "@/app/domain/verse";
 import type {
   AddVerseToBoxRequest,
   AddVerseToBoxResult,
@@ -12,7 +13,9 @@ import type {
   RemoveTextFromBoxResult,
   ReplaceLearningVerseInBoxRequest,
   TextBoxSummary,
+  TextBoxVerseRecord,
   TextBoxVersesResponse,
+  TextBoxVersesResponseRecord,
   TextBoxVisibility,
 } from "@/app/types/textBox";
 
@@ -118,11 +121,23 @@ export async function fetchTextBoxVerses(
   boxId: string,
   translation?: string,
 ): Promise<TextBoxVersesResponse> {
-  return TextBoxesService.listTextBoxVerses(
+  const raw = await TextBoxesService.listTextBoxVerses(
     telegramId,
     boxId,
     translation,
-  ) as Promise<TextBoxVersesResponse>;
+  ) as unknown as TextBoxVersesResponseRecord;
+
+  // Merge LLM annotation (context, meaning, keyPoints) into each Verse object
+  // so it flows naturally through VerseGallery without extra prop-drilling.
+  const items = (raw.items ?? []).map((item: TextBoxVerseRecord) => {
+    const verse = mapUserVerseToAppVerse(item.verse);
+    if (item.annotation) {
+      verse.annotation = item.annotation;
+    }
+    return { verse };
+  });
+
+  return { box: raw.box, items, totalCount: raw.totalCount ?? items.length };
 }
 
 export async function addVerseToTextBox(

@@ -1,6 +1,6 @@
 import React from "react";
 import { useCallback, useRef } from "react";
-import { ArrowRightLeft, BookMarked, Minus, Pause, Play, Trash2 } from "lucide-react";
+import { ArrowRightLeft, BookMarked, BookOpen, Minus, Pause, Play, Trash2 } from "lucide-react";
 import { VerseCard } from "@/app/components/VerseCard";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -35,6 +35,7 @@ type Props = {
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
   onEditQueuePosition?: (verse: Verse) => void;
+  onOpenAnnotation?: (verse: Verse) => void;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
   colorConfig?: VerseCardColorConfig;
   primaryActionOverride?: VerseGalleryPrimaryActionOverride | null;
@@ -56,6 +57,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   onOpenTags,
   onOpenOwners: _onOpenOwners,
   onEditQueuePosition: _onEditQueuePosition,
+  onOpenAnnotation,
   onVerticalSwipeStep,
   colorConfig: _colorConfig,
   primaryActionOverride = null,
@@ -202,6 +204,22 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               >
                 <ArrowRightLeft className="h-4 w-4" />
                 Заменить
+              </Button>
+            ) : null}
+
+            {/* Annotation info button — always shown; annotation is lazy-generated on first open */}
+            {onOpenAnnotation ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full px-3"
+                disabled={isActionPending}
+                onClick={() => onOpenAnnotation(verse)}
+                aria-label="Полная информация о стихе"
+              >
+                <BookOpen className="h-4 w-4" />
+                Подробнее
               </Button>
             ) : null}
 

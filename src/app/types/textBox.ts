@@ -1,4 +1,4 @@
-import type { AppVerseApiRecord, Verse } from "@/app/domain/verse";
+import type { AppVerseApiRecord, Verse, VerseAnnotationData } from "@/app/domain/verse";
 
 export type TextWorkspaceTab = "catalog" | "boxes";
 export type TextBoxVisibility = "private" | "public";
@@ -43,6 +43,7 @@ export type PublicTextBoxSummary = {
 
 export type TextBoxVerseRecord = {
   verse: AppVerseApiRecord;
+  annotation?: VerseAnnotationData | null;
 };
 
 export type TextBoxVerse = {

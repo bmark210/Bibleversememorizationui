@@ -12,6 +12,13 @@ import {
 } from "@/shared/verses/difficulty";
 import { resolveVerseState } from "@/shared/verseRules/index";
 
+/** LLM-generated annotation data attached to a verse from the text box API. */
+export type VerseAnnotationData = {
+  context: string;
+  meaning: string;
+  keyPoints: string[];
+};
+
 /** Frontend verse model — matches the VerseCardDto shape returned by the API. */
 export type Verse = {
   id?: string | number;
@@ -46,6 +53,8 @@ export type Verse = {
   contextPromptText?: string;
   contextPromptReference?: string;
   queuePosition?: number | null;
+  /** LLM-generated annotation – present only when fetched from text box verses API. */
+  annotation?: VerseAnnotationData | null;
 };
 
 export type AppVerseApiRecord = {
