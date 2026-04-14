@@ -48,6 +48,7 @@ import {
   haptic,
   clamp,
 } from "./utils";
+import { fetchVerseAnnotation } from "@/api/services/annotationService";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
 import {
   isCatalogGalleryMode,
@@ -61,8 +62,10 @@ type PreviewStatusMutation = {
 };
 
 type AnnotationDrawerState = {
+  verseId: string;
   reference: string;
   annotation: Verse["annotation"];
+  isLoading: boolean;
 } | null;
 
 function normalizeSelectedTagSlugs(
@@ -385,8 +388,33 @@ export function VerseGallery({
   });
 
   const handleOpenAnnotation = useEventCallback((verse: Verse) => {
-    if (!verse.annotation) return;
-    setAnnotationDrawer({ reference: verse.reference, annotation: verse.annotation });
+    const alreadyHas = Boolean(verse.annotation);
+    setAnnotationDrawer({
+      verseId: verse.externalVerseId,
+      reference: verse.reference,
+      annotation: verse.annotation ?? null,
+      isLoading: !alreadyHas,
+    });
+
+    if (!alreadyHas) {
+      fetchVerseAnnotation(verse.externalVerseId)
+        .then((annotation) => {
+          // Cache on the verse object so re-opens are instant
+          verse.annotation = annotation;
+          setAnnotationDrawer((prev) =>
+            prev?.verseId === verse.externalVerseId
+              ? { ...prev, annotation, isLoading: false }
+              : prev,
+          );
+        })
+        .catch(() => {
+          setAnnotationDrawer((prev) =>
+            prev?.verseId === verse.externalVerseId
+              ? { ...prev, isLoading: false }
+              : prev,
+          );
+        });
+    }
   });
 
   const closeActiveLayer = useEventCallback(() => {
@@ -615,6 +643,7 @@ export function VerseGallery({
         open={isAnnotationDrawerOpen}
         reference={annotationDrawer?.reference ?? ""}
         annotation={annotationDrawer?.annotation}
+        isLoading={annotationDrawer?.isLoading ?? false}
         onOpenChange={(open) => { if (!open) setAnnotationDrawer(null); }}
       />
     </>

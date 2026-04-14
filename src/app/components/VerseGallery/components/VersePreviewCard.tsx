@@ -207,8 +207,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               </Button>
             ) : null}
 
-            {/* Annotation info button — shown when verse has annotation data */}
-            {onOpenAnnotation && verse.annotation ? (
+            {/* Annotation info button — always shown; annotation is lazy-generated on first open */}
+            {onOpenAnnotation ? (
               <Button
                 type="button"
                 size="sm"

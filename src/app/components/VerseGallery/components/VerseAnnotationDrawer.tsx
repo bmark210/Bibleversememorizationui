@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen } from "lucide-react";
+import { BookOpen, Loader2 } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -16,6 +16,7 @@ type Props = {
   open: boolean;
   reference: string;
   annotation: VerseAnnotationData | null | undefined;
+  isLoading?: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -56,6 +57,7 @@ export function VerseAnnotationDrawer({
   open,
   reference,
   annotation,
+  isLoading = false,
   onOpenChange,
 }: Props) {
   const hasData =
@@ -71,13 +73,18 @@ export function VerseAnnotationDrawer({
         </DrawerHeader>
 
         <div className="flex-1 overflow-y-auto px-4 pb-2">
-          {!hasData ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-brand-primary/60" />
+              <p className="text-sm text-text-muted">Генерируем аннотацию…</p>
+            </div>
+          ) : !hasData ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <BookOpen className="h-10 w-10 text-text-muted/40" />
               <p className="text-sm text-text-muted">
-                Аннотация ещё не сгенерирована.
+                Не удалось загрузить аннотацию.
                 <br />
-                Откройте стих через API или дождитесь обработки.
+                Попробуйте закрыть и открыть снова.
               </p>
             </div>
           ) : (
