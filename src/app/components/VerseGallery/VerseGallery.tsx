@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
@@ -34,6 +35,7 @@ import { GalleryFooter } from "./components/GalleryFooter";
 import { GallerySwipeSlide } from "./components/GallerySwipeSlide";
 import { GalleryToasterPortal } from "./components/GalleryToasterPortal";
 import { SwipeHint } from "./components/SwipeHint";
+import { VerseAnnotationDrawer } from "./components/VerseAnnotationDrawer";
 import { VersePreviewCard } from "./components/VersePreviewCard";
 import { useGalleryAux } from "./hooks/useGalleryAux";
 import { useEventCallback } from "./hooks/useEventCallback";
@@ -57,6 +59,11 @@ import type { VerseGalleryProps } from "./types";
 type PreviewStatusMutation = {
   nextStatus: VerseStatus;
 };
+
+type AnnotationDrawerState = {
+  reference: string;
+  annotation: Verse["annotation"];
+} | null;
 
 function normalizeSelectedTagSlugs(
   activeTagSlugs: Iterable<string> | null | undefined
@@ -157,6 +164,8 @@ export function VerseGallery({
     setIsDeleteDialogOpen,
   } = useGalleryAux();
 
+  const [annotationDrawer, setAnnotationDrawer] = useState<AnnotationDrawerState>(null);
+
   const {
     activeIndex,
     direction,
@@ -215,7 +224,8 @@ export function VerseGallery({
   const isCatalogOwnedPreview =
     previewStatus != null &&
     isCatalogGalleryOwnedVerse(sourceMode, previewStatus);
-  const isBlockingOverlayOpen = isDeleteDialogOpen || isOverlayOpen;
+  const isAnnotationDrawerOpen = annotationDrawer !== null;
+  const isBlockingOverlayOpen = isDeleteDialogOpen || isOverlayOpen || isAnnotationDrawerOpen;
   const previewDisplayTotal = useMemo(
     () => Math.max(previewTotalCount, verses.length, 1),
     [previewTotalCount, verses.length]
@@ -374,7 +384,17 @@ export function VerseGallery({
     setIsDeleteDialogOpen(false);
   });
 
+  const handleOpenAnnotation = useEventCallback((verse: Verse) => {
+    if (!verse.annotation) return;
+    setAnnotationDrawer({ reference: verse.reference, annotation: verse.annotation });
+  });
+
   const closeActiveLayer = useEventCallback(() => {
+    if (isAnnotationDrawerOpen) {
+      setAnnotationDrawer(null);
+      return true;
+    }
+
     if (isDeleteDialogOpen) {
       setIsDeleteDialogOpen(false);
       return true;
@@ -523,6 +543,7 @@ export function VerseGallery({
               onOpenTags={handleOpenTagsDrawer}
               onOpenOwners={handleOpenOwnersDrawer}
               onEditQueuePosition={onEditQueuePosition}
+              onOpenAnnotation={handleOpenAnnotation}
               onVerticalSwipeStep={
                 isFocusMode && !isActionPending && !isBlockingOverlayOpen
                   ? handleFocusModeVerticalSwipe
@@ -588,6 +609,13 @@ export function VerseGallery({
         verse={previewActiveVerse}
         open={isVerseProgressDrawerOpen}
         onOpenChange={setIsVerseProgressDrawerOpen}
+      />
+
+      <VerseAnnotationDrawer
+        open={isAnnotationDrawerOpen}
+        reference={annotationDrawer?.reference ?? ""}
+        annotation={annotationDrawer?.annotation}
+        onOpenChange={(open) => { if (!open) setAnnotationDrawer(null); }}
       />
     </>
   );
