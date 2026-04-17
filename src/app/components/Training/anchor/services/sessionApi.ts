@@ -9,7 +9,7 @@ export interface FetchVersesPoolParams {
   telegramId: string;
   boxId: string;
   limit?: number;
-  translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
+  translation?: string;
 }
 
 export async function fetchAnchorVersesPool(params: FetchVersesPoolParams) {

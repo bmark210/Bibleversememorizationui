@@ -18,6 +18,7 @@ import {
   buildFlashcardSessionCards,
   type FlashcardSessionCard,
 } from "./flashcardSessionModel";
+import { useTranslationStore } from "@/app/stores/translationStore";
 
 const FLASHCARD_POOL_LIMIT = 20;
 
@@ -37,6 +38,7 @@ export function FlashcardSession({
   onSessionCommitted,
 }: FlashcardSessionProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
+  const translation = useTranslationStore((s) => s.translation);
 
   const [phase, setPhase] = useState<SessionPhase>("loading");
   const [cards, setCards] = useState<FlashcardSessionCard[]>([]);
@@ -54,6 +56,7 @@ export function FlashcardSession({
           telegramId,
           boxId,
           limit: FLASHCARD_POOL_LIMIT,
+          translation,
         });
 
         if (!response.verses || response.verses.length === 0) {
@@ -82,7 +85,7 @@ export function FlashcardSession({
         setPhase("error");
       }
     })();
-  }, [boxId, telegramId]);
+  }, [boxId, telegramId, translation]);
 
   const currentCard = cards[currentIndex];
 

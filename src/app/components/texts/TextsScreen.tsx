@@ -40,6 +40,7 @@ import { useFriendTextBoxes } from "@/app/hooks/texts/useFriendTextBoxes";
 import { usePublicTextBoxVerses } from "@/app/hooks/texts/usePublicTextBoxVerses";
 import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useTextBoxVerses } from "@/app/hooks/texts/useTextBoxVerses";
+import { useTranslationStore } from "@/app/stores/translationStore";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import type {
   PublicTextBoxOwner,
@@ -484,6 +485,8 @@ export function TextsScreen({
     string | null
   >(null);
 
+  const translation = useTranslationStore((s) => s.translation);
+
   const {
     boxes,
     isLoading: isLoadingBoxes,
@@ -494,7 +497,7 @@ export function TextsScreen({
     rename: renameBox,
     setVisibility: setBoxVisibility,
     remove: removeBox,
-  } = useTextBoxes(telegramId);
+  } = useTextBoxes(telegramId, translation);
 
   const {
     items: friendBoxes,
@@ -505,7 +508,7 @@ export function TextsScreen({
     refresh: refreshFriendBoxes,
     loadMore: loadMoreFriendBoxes,
     hasMore: hasMoreFriendBoxes,
-  } = useFriendTextBoxes(telegramId);
+  } = useFriendTextBoxes(telegramId, translation);
 
   const selectedBox = useMemo(
     () => boxes.find((box) => box.id === selectedBoxId) ?? null,
@@ -522,14 +525,14 @@ export function TextsScreen({
     isLoading: isLoadingSelectedBox,
     error: selectedBoxError,
     refresh: refreshSelectedBox,
-  } = useTextBoxVerses(telegramId, selectedBoxId);
+  } = useTextBoxVerses(telegramId, selectedBoxId, translation);
   const {
     verses: publicBoxItems,
     box: selectedPublicBoxFromApi,
     isLoading: isLoadingSelectedPublicBox,
     error: selectedPublicBoxError,
     refresh: refreshSelectedPublicBox,
-  } = usePublicTextBoxVerses(selectedPublicBoxId);
+  } = usePublicTextBoxVerses(selectedPublicBoxId, telegramId, translation);
 
   const visibleBox = selectedBox ?? selectedBoxFromApi ?? null;
   const visibleBoxTitle = visibleBox?.title ?? reopenTextBoxTitle ?? "Коробка";

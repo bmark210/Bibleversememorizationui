@@ -239,7 +239,7 @@ export function Layout({
         style={{ bottom: "calc(0px - var(--app-keyboard-offset, 0px))" }}
       >
         <nav
-          style={{ paddingBottom: `${Math.max(bottomInset, 22)}px` }}
+          style={{ paddingBottom: `${Math.max(bottomInset, 5)}px` }}
           className={cn(
             "flex justify-around border border-border-subtle bg-bg-overlay py-3.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:py-2.5",
             isExtendedNav ? "px-1.5 narrow:px-1.5" : "px-2.5 narrow:px-2",

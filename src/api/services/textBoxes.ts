@@ -9,6 +9,7 @@ import type {
   AddVerseToBoxRequest,
   AddVerseToBoxResult,
   PublicTextBoxDetailResponse,
+  PublicTextBoxDetailResponseRecord,
   PublicTextBoxesPageResponse,
   RemoveTextFromBoxResult,
   ReplaceLearningVerseInBoxRequest,
@@ -107,11 +108,34 @@ export async function fetchPublicTextBoxDetail(
   telegramId?: string,
   translation?: string,
 ): Promise<PublicTextBoxDetailResponse> {
-  return TextBoxesService.getPublicTextBox(
+  const raw = await TextBoxesService.getPublicTextBox(
     boxId,
     telegramId,
     translation,
-  ) as Promise<PublicTextBoxDetailResponse>;
+  ) as unknown as PublicTextBoxDetailResponseRecord;
+
+  const items = (raw.items ?? []).map((item: TextBoxVerseRecord) => {
+    const mergedVerse: typeof item.verse = {
+      ...item.verse,
+      ...(item.text != null        ? { text: item.text }                       : {}),
+      ...(item.reference != null   ? { reference: item.reference }             : {}),
+      ...(item.status != null      ? { status: item.status }                   : {}),
+      ...(item.flow != null        ? { flow: item.flow }                       : {}),
+      ...(item.masteryLevel != null         ? { masteryLevel: item.masteryLevel }             : {}),
+      ...(item.repetitions != null          ? { repetitions: item.repetitions }               : {}),
+      ...(item.reviewLapseStreak != null    ? { reviewLapseStreak: item.reviewLapseStreak }   : {}),
+      ...(item.nextReviewAt != null         ? { nextReviewAt: item.nextReviewAt }             : {}),
+      ...(item.lastReviewedAt != null       ? { lastReviewedAt: item.lastReviewedAt }         : {}),
+      ...(item.queuePosition != null        ? { queuePosition: item.queuePosition }           : {}),
+    };
+    const verse = mapUserVerseToAppVerse(mergedVerse);
+    if (item.annotation) {
+      verse.annotation = item.annotation;
+    }
+    return { verse };
+  });
+
+  return { box: raw.box, items, totalCount: raw.totalCount ?? items.length };
 }
 
 // ── Box Verses ────────────────────────────────────────────────────────────────
@@ -130,7 +154,25 @@ export async function fetchTextBoxVerses(
   // Merge LLM annotation (context, meaning, keyPoints) into each Verse object
   // so it flows naturally through VerseGallery without extra prop-drilling.
   const items = (raw.items ?? []).map((item: TextBoxVerseRecord) => {
-    const verse = mapUserVerseToAppVerse(item.verse);
+    // The API returns `text` and `reference` at the item level (resolved for the
+    // requested translation), while training-state fields (status, flow, masteryLevel …)
+    // may also live at the item level rather than inside the nested `verse` object.
+    // We merge item-level fields over the nested verse so mapUserVerseToAppVerse
+    // receives a complete record.
+    const mergedVerse: typeof item.verse = {
+      ...item.verse,
+      ...(item.text != null        ? { text: item.text }                       : {}),
+      ...(item.reference != null   ? { reference: item.reference }             : {}),
+      ...(item.status != null      ? { status: item.status }                   : {}),
+      ...(item.flow != null        ? { flow: item.flow }                       : {}),
+      ...(item.masteryLevel != null         ? { masteryLevel: item.masteryLevel }             : {}),
+      ...(item.repetitions != null          ? { repetitions: item.repetitions }               : {}),
+      ...(item.reviewLapseStreak != null    ? { reviewLapseStreak: item.reviewLapseStreak }   : {}),
+      ...(item.nextReviewAt != null         ? { nextReviewAt: item.nextReviewAt }             : {}),
+      ...(item.lastReviewedAt != null       ? { lastReviewedAt: item.lastReviewedAt }         : {}),
+      ...(item.queuePosition != null        ? { queuePosition: item.queuePosition }           : {}),
+    };
+    const verse = mapUserVerseToAppVerse(mergedVerse);
     if (item.annotation) {
       verse.annotation = item.annotation;
     }
@@ -231,7 +273,7 @@ export async function fetchTextBoxReferenceTrainer(
   telegramId: string,
   boxId: string,
   limit?: number,
-  translation?: "NRT" | "SYNOD" | "RBS2" | "BTI",
+  translation?: string,
 ) {
   return TextBoxesService.getTextBoxReferenceTrainer(
     telegramId,

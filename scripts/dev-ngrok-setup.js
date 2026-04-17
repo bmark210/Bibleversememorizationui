@@ -34,7 +34,7 @@ if (fs.existsSync(ENV_FILE)) {
 
 // ─── Конфиг ──────────────────────────────────────────────────────────────────
 const PORT = 3001;
-const API_URL = env.NEXT_PUBLIC_API_BASE_URL || 'https://bible-memory-db-production.up.railway.app';
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || env.NEXT_PUBLIC_API_BASE_URL || 'https://bible-memory-db-production.up.railway.app';
 const BOT_TOKEN = env.TELEGRAM_BOT_TOKEN || '';
 const BOT_NAME = 'Bible Memory';
 

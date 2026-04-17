@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type BibleBook, formatVerseReference, getBibleBookInfo } from "@/app/types/bible";
-import { getHelloaoChapter, normalizeHelloaoTranslation } from "@/shared/bible/helloao";
+import { formatVerseReference, getBibleBookInfo } from "@/app/types/bible";
+import { fetchBibleChapter } from "@/api/services/bibleApi";
+import { useTranslationStore } from "@/app/stores/translationStore";
 
 export type BibleCatalogVerse = {
   pk: number;
@@ -15,32 +16,27 @@ export type BibleCatalogVerse = {
   reference: string;
 };
 
-function toBibleCatalogVerse(item: Awaited<ReturnType<typeof getHelloaoChapter>>[number]): BibleCatalogVerse {
-  return {
-    ...item,
-    externalVerseId: `${item.book}-${item.chapter}-${item.verse}`,
-    reference: formatVerseReference(item.book, item.chapter, item.verse),
-  };
-}
-
 export function useBibleChapterCatalog(params?: {
   initialBook?: number;
   initialChapter?: number;
+  /** Явный перевод. Если не передан — берётся из глобального translationStore. */
   translation?: string | null;
 }) {
+  // Если перевод не задан явно — берём из глобального стора
+  const storeTranslation = useTranslationStore((s) => s.translation);
+  const translation = params?.translation ?? storeTranslation;
+
   const [bookId, setBookIdState] = useState<number>(params?.initialBook ?? 1);
   const [chapter, setChapterState] = useState<number>(params?.initialChapter ?? 1);
   const [verses, setVerses] = useState<BibleCatalogVerse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const translation = useMemo(
-    () => normalizeHelloaoTranslation(params?.translation),
-    [params?.translation],
-  );
   const bookInfo = useMemo(() => getBibleBookInfo(bookId), [bookId]);
   const chapterCount = bookInfo?.chapters ?? 1;
-  const chapterTitle = bookInfo ? `${bookInfo.nameRu} ${chapter}` : `Глава ${chapter}`;
+  const chapterTitle = bookInfo
+    ? `${bookInfo.nameRu} ${chapter}`
+    : `Глава ${chapter}`;
 
   useEffect(() => {
     setChapterState((current) => Math.min(Math.max(1, current), chapterCount));
@@ -53,11 +49,16 @@ export function useBibleChapterCatalog(params?: {
     setChapterState(1);
   }, []);
 
-  const setChapter = useCallback((nextChapter: number) => {
-    const normalized = Number(nextChapter);
-    if (!Number.isFinite(normalized)) return;
-    setChapterState(Math.min(Math.max(1, Math.round(normalized)), chapterCount));
-  }, [chapterCount]);
+  const setChapter = useCallback(
+    (nextChapter: number) => {
+      const normalized = Number(nextChapter);
+      if (!Number.isFinite(normalized)) return;
+      setChapterState(
+        Math.min(Math.max(1, Math.round(normalized)), chapterCount),
+      );
+    },
+    [chapterCount],
+  );
 
   const goToPrevChapter = useCallback(() => {
     setChapterState((current) => Math.max(1, current - 1));
@@ -71,15 +72,26 @@ export function useBibleChapterCatalog(params?: {
     setIsLoading(true);
     setError(null);
     try {
-      const chapterVerses = await getHelloaoChapter({
-        translation,
-        book: bookId as BibleBook,
+      const data = await fetchBibleChapter({
+        bookNumber: bookId,
         chapter,
+        translation,
       });
-      setVerses(chapterVerses.map(toBibleCatalogVerse));
-      return chapterVerses;
+      const result: BibleCatalogVerse[] = data.items.map((item, index) => ({
+        pk: index + 1,
+        translation,
+        book: item.bookNumber,
+        chapter: item.chapter,
+        verse: item.verseNumber,
+        text: item.text,
+        externalVerseId: item.externalVerseId,
+        reference: formatVerseReference(item.bookNumber, item.chapter, item.verseNumber),
+      }));
+      setVerses(result);
+      return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Не удалось загрузить главу";
+      const message =
+        err instanceof Error ? err.message : "Не удалось загрузить главу";
       setError(message);
       throw err;
     } finally {
@@ -87,6 +99,7 @@ export function useBibleChapterCatalog(params?: {
     }
   }, [bookId, chapter, translation]);
 
+  // Перезагружаем при смене книги, главы или перевода
   useEffect(() => {
     void refresh().catch(() => undefined);
   }, [refresh]);
@@ -100,6 +113,7 @@ export function useBibleChapterCatalog(params?: {
     verses,
     isLoading,
     error,
+    translation,
     setBookId,
     setChapter,
     goToPrevChapter,

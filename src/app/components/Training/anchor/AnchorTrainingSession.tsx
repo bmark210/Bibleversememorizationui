@@ -55,6 +55,7 @@ import {
 } from "./services/validation";
 import { resolveVerseState } from "@/shared/verseRules/index";
 import { useAppViewportStore } from "@/app/stores/appViewportStore";
+import { useTranslationStore } from "@/app/stores/translationStore";
 
 import type { AnchorModeGroup } from "../types";
 import type { Verse } from "@/app/domain/verse";
@@ -397,6 +398,7 @@ export function AnchorTrainingSession({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const fontSizes = useTrainingFontSize();
+  const translation = useTranslationStore((s) => s.translation);
   const initializedScopeRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const batchSeqRef = useRef(0);
@@ -515,6 +517,7 @@ export function AnchorTrainingSession({
           telegramId: telegramIdValue,
           boxId,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
+          translation,
         });
         const remotePool = response.verses
           .map(mapToTrainingVerse)
@@ -538,7 +541,7 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [boxId, sourceVerses, startSessionFromPool],
+    [boxId, sourceVerses, startSessionFromPool, translation],
   );
 
   useEffect(() => {

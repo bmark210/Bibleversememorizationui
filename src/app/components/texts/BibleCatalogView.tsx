@@ -4,9 +4,8 @@
  * BibleCatalogView — aggregated catalog with two primary sources:
  *
  * MODE A · All verses / text search without tags
- *   Primary:     helloao complete.json cached client-side.
- *   Enrichment:  backend batch lookup by externalVerseId for tags + isPopular.
- *   Result:      full-Bible canonical feed, including verses absent from DB.
+ *   Primary:     backend Bible API (VerseTranslation table).
+ *   Result:      paginated feed from local DB.
  *
  * MODE B · Popular / tag-filtered
  *   Primary:     backend catalog only.
@@ -26,16 +25,10 @@ import {
   X,
 } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
-import {
-  listHelloaoVerses,
-  searchHelloaoVerses,
-  type HelloaoVerse,
-} from "@/shared/bible/helloao";
+import { fetchBibleVerses, searchBibleVerses, type BibleVerseItem } from "@/api/services/bibleApi";
 import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
-import {
-  fetchCatalogVersesPage,
-  lookupCatalogVerses,
-} from "../../../api/services/catalogVersesPagination";
+import { fetchCatalogVersesPage } from "../../../api/services/catalogVersesPagination";
+import { useTranslationStore } from "@/app/stores/translationStore";
 import { TagsService } from "@/api/services/TagsService";
 import { addVerseToTextBox } from "../../../api/services/textBoxes";
 import type { domain_VerseListItem as BackendVerse } from "@/api/models/domain_VerseListItem";
@@ -96,15 +89,11 @@ type VisibilityFilter = "all" | "popular";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SEARCH_DEBOUNCE_MS = 400;
-const HELLOAO_PAGE_SIZE = 40;
+const PAGE_SIZE = 40;
 const VIRTUOSO_VIEWPORT_PADDING_PX = 720;
 const CREATE_BOX_BUSY_KEY = "__create-box__";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function toExternalId(v: HelloaoVerse) {
-  return `${v.book}-${v.chapter}-${v.verse}`;
-}
 
 function parseExternalVerseId(externalVerseId: string) {
   const [bookIdRaw, chapterRaw, verseNumberRaw] = externalVerseId
@@ -124,12 +113,6 @@ function parseExternalVerseId(externalVerseId: string) {
   };
 }
 
-/** helloao embeds raw <mark>…</mark> HTML in the text string — strip it so
- *  our React component can do its own styled highlighting. */
-function stripHtmlMarks(text: string): string {
-  return text.replace(/<\/?mark>/gi, "");
-}
-
 type BackendVerseWithPopularity = BackendVerse & { isPopular?: boolean | null };
 
 function backendToDisplay(v: BackendVerseWithPopularity): DisplayVerse {
@@ -142,34 +125,22 @@ function backendToDisplay(v: BackendVerseWithPopularity): DisplayVerse {
     chapter: parsed?.chapter ?? 0,
     verseNumber: parsed?.verseNumber ?? 0,
     isPopular: Boolean(v.isPopular ?? (v.tags ?? []).length > 0),
-    tags: (v.tags ?? []).map((t) => ({
-      id: t.id,
-      slug: t.slug,
-      title: t.title,
-    })),
+    tags: (v.tags ?? []).map((t) => ({ id: t.id, slug: t.slug, title: t.title })),
     inDatabase: true,
   };
 }
 
-function helloaoToDisplay(
-  v: HelloaoVerse,
-  dbVerse?: BackendVerseWithPopularity | null,
-): DisplayVerse {
-  const dbTags = (dbVerse?.tags ?? []).map((tag) => ({
-    id: tag.id,
-    slug: tag.slug,
-    title: tag.title,
-  }));
+function bibleVerseToDisplay(v: BibleVerseItem): DisplayVerse {
   return {
-    externalVerseId: toExternalId(v),
-    reference: formatVerseReference(v.book, v.chapter, v.verse),
-    text: stripHtmlMarks(v.text),
-    bookId: v.book,
+    externalVerseId: v.externalVerseId,
+    reference: v.reference,
+    text: v.text,
+    bookId: v.bookNumber,
     chapter: v.chapter,
-    verseNumber: v.verse,
-    isPopular: Boolean(dbVerse?.isPopular ?? dbTags.length > 0),
-    tags: dbTags,
-    inDatabase: Boolean(dbVerse),
+    verseNumber: v.verseNumber,
+    isPopular: false,
+    tags: [],
+    inDatabase: false,
   };
 }
 
@@ -212,10 +183,6 @@ function detectMode(
   return "all_bible";
 }
 
-function isHelloaoMode(mode: CatalogMode) {
-  return mode === "all_bible" || mode === "text_search";
-}
-
 function useAggregatedCatalog(params: {
   telegramId: string | null;
   searchQuery: string;
@@ -225,10 +192,11 @@ function useAggregatedCatalog(params: {
 }) {
   const { telegramId, searchQuery, tagSlugs, bookId, visibility } = params;
   const mode = detectMode(searchQuery, tagSlugs, visibility);
+  // Перевод читается из глобального стора — меняется в Профиле
+  const translation = useTranslationStore((s) => s.translation);
 
   const [verses, setVerses] = useState<DisplayVerse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingIndex, setIsLoadingIndex] = useState(false); // complete.json downloading
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -236,102 +204,43 @@ function useAggregatedCatalog(params: {
 
   const versionRef = useRef(0);
   const loadedCountRef = useRef(0);
-  const helloaoPageRef = useRef(1);
-  const enrichmentMapRef = useRef<Map<string, BackendVerseWithPopularity>>(
-    new Map(),
-  );
 
-  const fetchHelloaoPage = useCallback(
-    async (page: number) => {
-      const bookFilter = bookId != null ? (bookId as BibleBook) : undefined;
-      if (mode === "all_bible") {
-        return listHelloaoVerses({
-          book: bookFilter,
-          page,
-          limit: HELLOAO_PAGE_SIZE,
-        });
-      }
-
-      return searchHelloaoVerses({
-        query: searchQuery.trim(),
-        book: bookFilter,
-        page,
-        limit: HELLOAO_PAGE_SIZE,
-      });
-    },
-    [bookId, mode, searchQuery],
-  );
-
-  const enrichHelloaoVerses = useCallback(
-    async (sourceVerses: HelloaoVerse[]) => {
-      if (sourceVerses.length === 0) {
-        return [] as DisplayVerse[];
-      }
-
-      const missingIds = sourceVerses
-        .map((verse) => toExternalId(verse))
-        .filter(
-          (externalVerseId) => !enrichmentMapRef.current.has(externalVerseId),
-        );
-
-      if (missingIds.length > 0) {
-        try {
-          const response = await lookupCatalogVerses({
-            telegramId: telegramId ?? undefined,
-            externalVerseIds: missingIds,
-          });
-          response.items.forEach((item) => {
-            if (item.externalVerseId) {
-              enrichmentMapRef.current.set(
-                item.externalVerseId,
-                item as BackendVerseWithPopularity,
-              );
-            }
-          });
-        } catch {
-          // Fallback: keep the all-Bible list usable even if enrichment fails.
-        }
-      }
-
-      return sourceVerses.map((verse) =>
-        helloaoToDisplay(
-          verse,
-          enrichmentMapRef.current.get(toExternalId(verse)) ?? null,
-        ),
-      );
-    },
-    [telegramId],
-  );
+  // Whether this mode reads from local Bible DB (all verses / search)
+  const isBibleMode = mode === "all_bible" || mode === "text_search";
 
   useEffect(() => {
     const version = ++versionRef.current;
     loadedCountRef.current = 0;
-    helloaoPageRef.current = 1;
-    enrichmentMapRef.current = new Map();
-
     setVerses([]);
     setHasMore(false);
     setTotalCount(0);
     setError(null);
     setIsLoading(true);
-    setIsLoadingIndex(false);
 
     (async () => {
       try {
-        if (isHelloaoMode(mode)) {
-          setIsLoadingIndex(true);
-          const result = await fetchHelloaoPage(1);
+        if (isBibleMode) {
+          const res =
+            mode === "text_search"
+              ? await searchBibleVerses({
+                  q: searchQuery.trim(),
+                  translation,
+                  bookNumber: bookId ?? undefined,
+                  limit: PAGE_SIZE,
+                  offset: 0,
+                })
+              : await fetchBibleVerses({
+                  translation,
+                  bookNumber: bookId ?? undefined,
+                  limit: PAGE_SIZE,
+                  offset: 0,
+                });
           if (versionRef.current !== version) return;
-          setIsLoadingIndex(false);
-
-          const displayVerses = await enrichHelloaoVerses(result.results);
-          if (versionRef.current !== version) return;
-
-          helloaoPageRef.current = 2;
-          loadedCountRef.current = displayVerses.length;
-          setVerses(displayVerses);
-          setTotalCount(result.total);
-          setHasMore(displayVerses.length < result.total);
+          const items = res.items.map(bibleVerseToDisplay);
+          loadedCountRef.current = items.length;
+          setVerses(items);
+          setTotalCount(res.total);
+          setHasMore(items.length < res.total);
         } else {
           const res = await fetchCatalogVersesPage({
             telegramId: telegramId ?? undefined,
@@ -341,11 +250,10 @@ function useAggregatedCatalog(params: {
             search: searchQuery.trim() || undefined,
             orderBy: "bible",
             order: "asc",
-            limit: HELLOAO_PAGE_SIZE,
+            limit: PAGE_SIZE,
             startWith: 0,
           });
           if (versionRef.current !== version) return;
-
           const items = (res.items ?? []).map((item) =>
             backendToDisplay(item as BackendVerseWithPopularity),
           );
@@ -356,49 +264,45 @@ function useAggregatedCatalog(params: {
         }
       } catch (err) {
         if (versionRef.current !== version) return;
-        setIsLoadingIndex(false);
         setError("Не удалось загрузить стихи");
         console.error(err);
       } finally {
-        if (versionRef.current === version) {
-          setIsLoading(false);
-          setIsLoadingIndex(false);
-        }
+        if (versionRef.current === version) setIsLoading(false);
       }
     })();
-  }, [
-    bookId,
-    enrichHelloaoVerses,
-    fetchHelloaoPage,
-    mode,
-    searchQuery,
-    tagSlugs.join(","),
-    telegramId,
-    visibility,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, searchQuery, bookId, tagSlugs.join(","), telegramId, visibility, translation]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return;
     const version = versionRef.current;
     setIsLoadingMore(true);
-
     try {
-      if (isHelloaoMode(mode)) {
-        const result = await fetchHelloaoPage(helloaoPageRef.current);
+      if (isBibleMode) {
+        const res =
+          mode === "text_search"
+            ? await searchBibleVerses({
+                q: searchQuery.trim(),
+                translation,
+                bookNumber: bookId ?? undefined,
+                limit: PAGE_SIZE,
+                offset: loadedCountRef.current,
+              })
+            : await fetchBibleVerses({
+                translation,
+                bookNumber: bookId ?? undefined,
+                limit: PAGE_SIZE,
+                offset: loadedCountRef.current,
+              });
         if (versionRef.current !== version) return;
-
-        const newVerses = await enrichHelloaoVerses(result.results);
-        if (versionRef.current !== version) return;
-
-        helloaoPageRef.current += 1;
+        const fresh = res.items.map(bibleVerseToDisplay);
         setVerses((prev) => {
           const seen = new Set(prev.map((v) => v.externalVerseId));
-          const fresh = newVerses.filter((v) => !seen.has(v.externalVerseId));
-          const merged = [...prev, ...fresh];
+          const merged = [...prev, ...fresh.filter((v) => !seen.has(v.externalVerseId))];
           loadedCountRef.current = merged.length;
           return merged;
         });
-        setHasMore(loadedCountRef.current < result.total);
+        setHasMore(loadedCountRef.current < res.total);
       } else {
         const res = await fetchCatalogVersesPage({
           telegramId: telegramId ?? undefined,
@@ -408,18 +312,16 @@ function useAggregatedCatalog(params: {
           search: searchQuery.trim() || undefined,
           orderBy: "bible",
           order: "asc",
-          limit: HELLOAO_PAGE_SIZE,
+          limit: PAGE_SIZE,
           startWith: loadedCountRef.current,
         });
         if (versionRef.current !== version) return;
-
-        const items = (res.items ?? []).map((item) =>
+        const fresh = (res.items ?? []).map((item) =>
           backendToDisplay(item as BackendVerseWithPopularity),
         );
         setVerses((prev) => {
           const seen = new Set(prev.map((v) => v.externalVerseId));
-          const fresh = items.filter((v) => !seen.has(v.externalVerseId));
-          const merged = [...prev, ...fresh];
+          const merged = [...prev, ...fresh.filter((v) => !seen.has(v.externalVerseId))];
           loadedCountRef.current = merged.length;
           return merged;
         });
@@ -430,24 +332,13 @@ function useAggregatedCatalog(params: {
     } finally {
       if (versionRef.current === version) setIsLoadingMore(false);
     }
-  }, [
-    bookId,
-    enrichHelloaoVerses,
-    fetchHelloaoPage,
-    hasMore,
-    isLoadingMore,
-    mode,
-    searchQuery,
-    tagSlugs,
-    telegramId,
-    visibility,
-  ]);
+  }, [bookId, hasMore, isBibleMode, isLoadingMore, mode, searchQuery, tagSlugs, telegramId, translation, visibility]);
 
   return {
     verses,
     mode,
     isLoading,
-    isLoadingIndex,
+    isLoadingIndex: false,
     isLoadingMore,
     hasMore,
     totalCount,
@@ -859,7 +750,7 @@ export function BibleCatalogView({
               <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
             </div>
           )}
-          {!hasMore && verses.length > 0 && totalCount > HELLOAO_PAGE_SIZE && (
+          {!hasMore && verses.length > 0 && totalCount > PAGE_SIZE && (
             <p className="py-3 text-center text-[11px] text-text-muted">
               Все результаты загружены
             </p>

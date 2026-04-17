@@ -42,7 +42,24 @@ export type PublicTextBoxSummary = {
 };
 
 export type TextBoxVerseRecord = {
+  id?: string | null;
+  boxId?: string | null;
+  verseId?: string | null;
+  createdAt?: string | null;
   verse: AppVerseApiRecord;
+  /** Verse text resolved for the requested translation — lives at item level, not inside verse. */
+  text?: string | null;
+  /** Formatted reference resolved for the requested translation — lives at item level. */
+  reference?: string | null;
+  /** Training state fields that the API may return at item level. */
+  status?: string | null;
+  flow?: unknown;
+  masteryLevel?: number | null;
+  repetitions?: number | null;
+  reviewLapseStreak?: number | null;
+  nextReviewAt?: string | null;
+  lastReviewedAt?: string | null;
+  queuePosition?: number | null;
   annotation?: VerseAnnotationData | null;
 };
 

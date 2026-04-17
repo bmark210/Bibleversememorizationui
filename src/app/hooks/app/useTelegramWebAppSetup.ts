@@ -8,12 +8,14 @@ import {
   useTelegramUiStore,
 } from "@/app/stores/telegramUiStore";
 import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
+import { useTranslationStore } from "@/app/stores/translationStore";
 
 export function useTelegramWebAppSetup() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     useTrainingFontStore.getState().hydrateTrainingFontSize();
+    useTranslationStore.getState().hydrateTranslation();
 
     const telegramUiStore = useTelegramUiStore.getState();
     const webApp = getTelegramWebApp();
