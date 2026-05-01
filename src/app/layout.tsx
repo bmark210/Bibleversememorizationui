@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Inter, Literata } from 'next/font/google'
-import Script from 'next/script'
 
 import { DisableViewportZoom } from './components/DisableViewportZoom'
 import './globals.css'
@@ -39,10 +38,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <head>
       <meta name="color-scheme" content="light dark" />
-      <Script
-        src="https://telegram.org/js/telegram-web-app.js"
-        strategy="beforeInteractive"
-      />
+      {/* Plain <script> (not next/script) — beforeInteractive Script in <head> caused
+          a server/client hydration mismatch that broke react-virtuoso layout on Android. */}
+      <script src="https://telegram.org/js/telegram-web-app.js"></script>
       {/* Применяем сохранённую тему ДО загрузки React. Если пользователь ещё не выбирал тему, берём Telegram/WebApp theme. */}
       <script dangerouslySetInnerHTML={{ __html: `
 (function(){try{
